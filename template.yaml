@@ -1,0 +1,1341 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Cognito 1.4.5
+Globals:
+  Function:
+    Timeout: 15
+Parameters:
+  UserPoolName:
+    Type: String
+    Description: Name of the User Pool.
+    AllowedPattern: .+
+  AllowAdminCreateUserOnly:
+    Default: 'false'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+  PasswordMinimumLength:
+    Type: Number
+    Description: The minimum password length.
+    MinValue: '6'
+    MaxValue: '99'
+    Default: '8'
+  PasswordRequireLowercase:
+    Description: Password requires at least one lowercase letter.
+    Default: 'true'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+  PasswordRequireNumbers:
+    Description: Password requires at least one number.
+    Default: 'true'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+  PasswordRequireSymbols:
+    Description: Password requires at least one symbol.
+    Default: 'true'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+  PasswordRequireUppercase:
+    Description: Password requires at least one uppercase letter.
+    Default: 'true'
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+  Domain:
+    Description: Amazon Cognito domain to use (include full domain if CertificateArn
+      used)
+    AllowedPattern: .+
+    Type: String
+  DomainCertificateArn:
+    Description: Amazon Cognito Certificate ARN to use
+    Type: String
+    Default: ''
+  ApiDomain:
+    Description: Amazon API domain to use (include full domain if ApiDomainCertificateArn
+      used)
+    Type: String
+    Default: ''
+  ApiDomainCertificateArn:
+    Description: Amazon API domain Certificate ARN to use
+    Type: String
+    Default: ''
+  SesSourceArn:
+    Type: String
+    Description: The Amazon Resource Name (ARN) of a verified email address in Amazon
+      SES
+    Default: ''
+  ReplyToEmailAddress:
+    Type: String
+    Description: The destination to which the receiver of the email should reply to
+    Default: ''
+  RedirectUrl:
+    Type: String
+    Description: The URL to redirect to from Cognito Signup
+    AllowedPattern: .+
+  HostedZoneId:
+    Description: (optional) Route53 Hosted Zone Id in which to add A record
+    Type: String
+    Default: ''
+  AccessTokenValidity:
+    Description: The time limit, after which the access token is no longer valid and
+      cannot be used.
+    Type: Number
+    Default: 24
+  IdTokenValidity:
+    Description: The time limit, after which the ID token is no longer valid and cannot
+      be used.
+    Type: Number
+    Default: 24
+Conditions:
+  HasDomainCertificate:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: DomainCertificateArn
+      - ''
+  HasSesSourceArn:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: SesSourceArn
+      - ''
+  HasReplyToEmailAddress:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: ReplyToEmailAddress
+      - ''
+  HasNoDomainCertificate:
+    Fn::Equals:
+    - Ref: DomainCertificateArn
+    - ''
+  ApiDomainCertificateArn:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: ApiDomainCertificateArn
+      - ''
+Resources:
+  StageAccessLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 90
+      LogGroupName:
+        Fn::Sub: /${AWS::StackName}/APICognitoAccessLogs
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn:
+    - HttpApi
+    Properties:
+      ApiId:
+        Ref: HttpApi
+      AutoDeploy: true
+      Description:
+        Fn::Sub: ${AWS::StackName}
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 200
+        ThrottlingRateLimit: 100
+      AccessLogSettings:
+        DestinationArn:
+          Fn::GetAtt:
+          - StageAccessLogs
+          - Arn
+        Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp",
+          "requestTime":"$context.requestTime", "httpMethod":"$context.httpMethod","routeKey":"$context.routeKey",
+          "status":"$context.status","protocol":"$context.protocol", "integrationStatus":
+          $context.integrationStatus, "integrationLatency": $context.integrationLatency,
+          "responseLength":"$context.responseLength" }'
+      Tags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Body:
+        openapi: 3.0.1
+        info:
+          title:
+            Fn::Sub: ${AWS::StackName} Cognito API
+          description: Cognito HTTP API
+          version: 1.4.0
+        paths:
+          /confirmRegistration:
+            get:
+              description: Confirm User Registration.
+              tags:
+              - Cognito
+              responses:
+                '301':
+                  description: 301 response
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi301'
+          /confirmSignUp:
+            get:
+              description: Confirm User Signup.
+              tags:
+              - Cognito
+              responses:
+                '301':
+                  description: 301 response
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi301'
+          /respondToAuthChallenge:
+            post:
+              description: Cognito Respond To Auth Challenge
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoRespondToAuthChallenge'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /resetPassword:
+            post:
+              description: Confirm User Lost Password Signup.
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoLostPassword'
+              responses:
+                '301':
+                  description: 301 response
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi301'
+          /login:
+            post:
+              description: Cognito Login
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoLogin'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /refreshToken:
+            post:
+              description: Refresh Cognito Login
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/RefreshToken'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /register:
+            post:
+              description: Register Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoRegisterUser'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /forgotPassword:
+            post:
+              description: Lost Password
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoLostPasswordBody'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /changePassword:
+            post:
+              description: Change Password
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoChangePassword'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /createUser:
+            post:
+              description: Admin Create Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoCreateUser'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                      
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'       
+          /deleteUser:
+            post:
+              description: Admin Delete Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoDeleteUser'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                        
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
+          /addUserToGroup:
+            post:
+              description: Admin Add Cognito User To Group
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoAddUserToGroup'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'   
+          /removeUserFromGroup:
+            post:
+              description: Admin Remove Cognito User From Group
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoRemoveUserFromGroup'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'     
+          /listGroups:
+            post:
+              description: List Groups In Cognito
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /listUsersInGroup:
+            post:
+              description: List Users In Group
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoListUsersInGroup'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
+          /listUsers:
+            post:
+              description: List Users In Cognito
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
+          /listGroupsForUser:
+            post:
+              description: Admin List Groups For Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoListGroupsForUser'  
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
+          /updateUserAttributes:
+            post:
+              description: Admin List Groups For Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoUpdateUserAttributes'  
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200' 
+          /getUser:
+            post:
+              description: Admin Get Cognito User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoGetUser'  
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'     
+          /createGroup:
+            post:
+              description: Admin Create Cognito Group
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoCreateGroup'  
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'    
+          /deleteGroup:
+            post:
+              description: Admin Delete Cognito Group
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoDeleteGroup'  
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'                                                                
+        components:
+          headers:
+            AccessControlAllowOrigin:
+              schema:
+                type: string
+            AccessControlAllowMethods:
+              schema:
+                type: string
+            AccessControlAllowHeaders:
+              schema:
+                type: string
+            Location:
+              schema:
+                type: string
+          parameters:
+            codeParam:
+              name: code
+              in: query
+              description: OAuth2 Code
+              required: true
+              schema:
+                type: string
+          schemas:
+            RefreshToken:
+              required:
+              - refreshToken
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+            CognitoLogin:
+              required:
+              - username
+              - password
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+            CognitoRespondToAuthChallenge:
+              required:
+              - username
+              - password
+              - session
+              - userStatus
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                session:
+                  type: string
+                userStatus:
+                  type: string
+            CognitoChangePassword:
+              required:
+              - accessToken
+              - password
+              - previousPassword
+              type: object
+              properties:
+                accessToken:
+                  type: string
+                password:
+                  type: string
+                previousPassword:
+                  type: string
+            CognitoLostPassword:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string
+            CognitoRegisterUser:
+              required:
+              - username
+              - password
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                createNewGroup:
+                  type: boolean
+            CognitoLostPasswordBody:
+              required:
+              - username
+              - password
+              - code
+              - clientId
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                code:
+                  type: string
+                clientId:
+                  type: string
+            CognitoCreateUser:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string   
+            CognitoDeleteUser:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string   
+            CognitoAddUserToGroup:
+              required:
+              - username
+              - groupname
+              type: object
+              properties:
+                username:
+                  type: string   
+                groupname:
+                  type: string 
+            CognitoRemoveUserFromGroup:
+              required:
+              - username
+              - groupname
+              type: object
+              properties:
+                username:
+                  type: string   
+                groupname:
+                  type: string
+            CognitoListUsersInGroup:
+              required:
+              - groupname
+              type: object
+              properties:
+                groupname:
+                  type: string
+            CognitoListGroupsForUser:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string   
+            CognitoUpdateUserAttributes:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string 
+            CognitoGetUser:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string  
+            CognitoCreateGroup:
+              required:
+              - groupname
+              type: object
+              properties:
+                groupname:
+                  type: string  
+            CognitoDeleteGroup:
+              required:
+              - groupname
+              type: object
+              properties:
+                groupname:
+                  type: string                                                         
+          securitySchemes:
+            cognito-auth:
+              type: "oauth2"
+              flows: {}
+              x-amazon-apigateway-authorizer:
+                identitySource: "$request.header.Authorization"
+                jwtConfiguration:
+                  audience:
+                  - Ref: CognitoUserPoolClient
+                  issuer: 
+                    Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}
+                type: "jwt"                                    
+          x-amazon-apigateway-integrations:
+            lambdaApi200:
+              uri:
+                Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CognitoRequests.Arn}/invocations
+              responses:
+                default:
+                  statusCode: '200'
+                  responseParameters:
+                    method.response.header.Access-Control-Allow-Methods: '''*'''
+                    method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
+                    method.response.header.Access-Control-Allow-Origin: '''*'''
+              passthroughBehavior: when_no_templates
+              httpMethod: POST
+              type: aws_proxy
+              payloadFormatVersion: '1.0'
+            lambdaApi301:
+              uri:
+                Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CognitoRequests.Arn}/invocations
+              responses:
+                default:
+                  statusCode: '301'
+              passthroughBehavior: when_no_templates
+              httpMethod: POST
+              type: aws_proxy
+              payloadFormatVersion: '1.0'
+        x-amazon-apigateway-cors:
+          allowOrigins:
+          - '*'
+          maxAge: 3600
+          allowMethods:
+          - '*'
+          allowHeaders:
+          - '*'
+  HttpApiUrlParameter:
+    Type: AWS::SSM::Parameter
+    DependsOn:
+    - HttpApi
+    Properties:
+      Description: The URL for the Cognito API endpoint
+      Type: String
+      Name:
+        Fn::Sub: /formkiq/cognito/${Domain}/CognitoHttpApiUrl
+      Value:
+        Fn::If:
+        - ApiDomainCertificateArn
+        - Fn::Sub: https://${ApiDomain}
+        - Fn::GetAtt:
+          - HttpApi
+          - ApiEndpoint
+      Tags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+  CognitoRequests:
+    Type: AWS::Serverless::Function
+    DependsOn: CognitoRequestsRole
+    Properties:
+      Description: A Lambda function that redirects Signup, handles register, lostpassword
+        & login Requests.
+      CodeUri: CognitoRequests
+      Handler: app.lambdaHandler
+      Runtime: nodejs14.x
+      MemorySize: 256
+      Timeout: 25
+      Role:
+        Fn::GetAtt:
+        - CognitoRequestsRole
+        - Arn
+      Environment:
+        Variables:
+          REGION:
+            Fn::Sub: ${AWS::Region}
+          USER_POOL_ID:
+            Ref: CognitoUserPool
+          POOL_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+          REDIRECT_URI:
+            Ref: RedirectUrl
+          COGNITO_DOMAIN:
+            Fn::If:
+            - HasDomainCertificate
+            - Ref: Domain
+            - Fn::Sub: https://${Domain}.auth.${AWS::Region}.amazoncognito.com
+          GROUP: Admins  
+      Tags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+    Metadata:
+      SamResourceId: CognitoRequests
+  CognitoRequestsApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - HttpApi
+    - CognitoRequests
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: CognitoRequests
+      Principal: apigateway.amazonaws.com
+  CognitoRequestsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+      - Key: StackName
+        Value:
+          Fn::Sub: ${AWS::StackName}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: apigatewaylambdarole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - cognito-idp:AdminSetUserPassword
+            - cognito-idp:AdminGetUser
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:CreateGroup
+            - cognito-idp:AdminAddUserToGroup
+            - cognito-idp:AdminConfirmSignUp
+            - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:AdminDeleteUser
+            - cognito-idp:AdminRemoveUserFromGroup
+            - cognito-idp:ListGroups
+            - cognito-idp:ListUsersInGroup
+            - cognito-idp:ListUsers
+            - cognito-idp:AdminListGroupsForUser
+            - cognito-idp:CreateGroup
+            - cognito-idp:DeleteGroup           
+            Resource:
+              Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPool}
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    DependsOn:
+    - CognitoCustomMessage
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+        - Name: verified_email
+          Priority: 1
+      UserPoolName:
+        Ref: UserPoolName
+      EmailConfiguration:
+        EmailSendingAccount:
+          Fn::If:
+          - HasSesSourceArn
+          - DEVELOPER
+          - COGNITO_DEFAULT
+        From:
+          Fn::If:
+          - HasReplyToEmailAddress
+          - Ref: ReplyToEmailAddress
+          - Ref: AWS::NoValue
+        SourceArn:
+          Fn::If:
+          - HasSesSourceArn
+          - Ref: SesSourceArn
+          - Ref: AWS::NoValue
+        ReplyToEmailAddress:
+          Fn::If:
+          - HasReplyToEmailAddress
+          - Ref: ReplyToEmailAddress
+          - Ref: AWS::NoValue
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+      UsernameAttributes:
+      - email
+      AutoVerifiedAttributes:
+      - email
+      MfaConfiguration: 'OFF'
+      UsernameConfiguration:
+        CaseSensitive: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly:
+          Fn::Sub: ${AllowAdminCreateUserOnly}
+      LambdaConfig:
+        CustomMessage:
+          Fn::GetAtt:
+          - CognitoCustomMessage
+          - Arn
+      Policies:
+        PasswordPolicy:
+          MinimumLength:
+            Fn::Sub: ${PasswordMinimumLength}
+          RequireLowercase:
+            Fn::Sub: ${PasswordRequireLowercase}
+          RequireNumbers:
+            Fn::Sub: ${PasswordRequireNumbers}
+          RequireSymbols:
+            Fn::Sub: ${PasswordRequireSymbols}
+          RequireUppercase:
+            Fn::Sub: ${PasswordRequireUppercase}
+      Schema:
+      - Name: email
+        AttributeDataType: String
+        Mutable: false
+        Required: true
+      UserPoolTags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId:
+        Ref: CognitoUserPool
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity:
+        Ref: AccessTokenValidity
+      IdTokenValidity:
+        Ref: IdTokenValidity
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+      ExplicitAuthFlows:
+      - ALLOW_USER_PASSWORD_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+      - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      - ALLOW_USER_SRP_AUTH
+  CognitoCustomMessage:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: CognitoCustomMessage
+      Handler: app.lambdaHandler
+      Runtime: nodejs14.x
+      Description: Lambda function that processes Cognito Custom Email Messages
+      Role:
+        Fn::GetAtt:
+        - CognitoCustomMessageRole
+        - Arn
+      Environment:
+        Variables:
+          REDIRECT_URI:
+            Ref: RedirectUrl
+          DOMAIN:
+            Ref: Domain
+          S3_BUCKET:
+            Ref: CognitoConfig
+      Tags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+    Metadata:
+      SamResourceId: CognitoCustomMessage
+  CognitoConfig:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: StackName
+        Value:
+          Fn::Sub: ${AWS::StackName}
+  CognitoCustomMessagePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - CognitoCustomMessage
+    - CognitoUserPool
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: CognitoCustomMessage
+      Principal: cognito-idp.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - CognitoUserPool
+        - Arn
+  CognitoCustomMessageRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+      - Key: StackName
+        Value:
+          Fn::Sub: ${AWS::StackName}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${AWS::StackName}-CognitoCustomMessageRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ssm:GetParameters
+            Resource:
+            - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/formkiq/cognito/*
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+            - Fn::Sub: arn:aws:s3:::${CognitoConfig}/*
+  UserPoolDomainCustom:
+    Type: AWS::Cognito::UserPoolDomain
+    DependsOn:
+    - CognitoUserPool
+    Condition: HasDomainCertificate
+    Properties:
+      UserPoolId:
+        Ref: CognitoUserPool
+      Domain:
+        Ref: Domain
+      CustomDomainConfig:
+        CertificateArn:
+          Ref: DomainCertificateArn
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    DependsOn:
+    - CognitoUserPool
+    Condition: HasNoDomainCertificate
+    Properties:
+      UserPoolId:
+        Ref: CognitoUserPool
+      Domain:
+        Ref: Domain
+  CognitoIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName:
+        Fn::Sub: ${AWS::StackName}-identity-pool
+      CognitoIdentityProviders:
+      - ClientId:
+          Ref: CognitoUserPoolClient
+        ProviderName:
+          Fn::GetAtt:
+          - CognitoUserPool
+          - ProviderName
+      AllowUnauthenticatedIdentities: false
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: ApiDomainCertificateArn
+    Properties:
+      DomainName:
+        Ref: ApiDomain
+      DomainNameConfigurations:
+      - CertificateArn:
+          Ref: ApiDomainCertificateArn
+      Tags:
+        StackName:
+          Fn::Sub: ${AWS::StackName}
+  ApiDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: ApiDomainCertificateArn
+    DependsOn:
+    - HttpApiStage
+    - HttpApi
+    - ApiRoute53
+    Properties:
+      ApiId:
+        Ref: HttpApi
+      DomainName:
+        Ref: ApiDomain
+      Stage: $default
+  ApiRoute53:
+    Type: AWS::Route53::RecordSet
+    Condition: ApiDomainCertificateArn
+    Properties:
+      Name:
+        Ref: ApiDomain
+      HostedZoneId:
+        Ref: HostedZoneId
+      Type: A
+      AliasTarget:
+        HostedZoneId:
+          Fn::GetAtt:
+          - ApiDomainName
+          - RegionalHostedZoneId
+        DNSName:
+          Fn::GetAtt:
+          - ApiDomainName
+          - RegionalDomainName
+Outputs:
+  HttpApi:
+    Description: The Cognito Login API ID
+    Value:
+      Ref: HttpApi
+  ApiEndpoint:
+    Description: The Cognito Login API endpoint
+    Value:
+      Fn::If:
+      - ApiDomainCertificateArn
+      - Fn::Sub: https://${ApiDomain}
+      - Fn::GetAtt:
+        - HttpApi
+        - ApiEndpoint
+  CognitoConfigBucket:
+    Description: The Cognito Config Bucket
+    Value:
+      Ref: CognitoConfig
+  CognitoUserPoolId:
+    Description: The Cognito User Pool Id
+    Value:
+      Ref: CognitoUserPool
+  CognitoUserPoolProviderName:
+    Description: The Cognito User Pool Provider Name
+    Value:
+      Fn::GetAtt:
+      - CognitoUserPool
+      - ProviderName
+  CognitoUserPoolProviderURL:
+    Description: The Cognito User Pool Provider URL
+    Value:
+      Fn::GetAtt:
+      - CognitoUserPool
+      - ProviderURL
+  CognitoUserPoolArn:
+    Description: The Cognito User Pool Arn
+    Value:
+      Fn::GetAtt:
+      - CognitoUserPool
+      - Arn
+  CognitoUserPoolClientId:
+    Description: The Cognito User Pool Client Id
+    Value:
+      Ref: CognitoUserPoolClient
+  CognitoIdentityPoolId:
+    Description: Cognito Identity Pool
+    Value:
+      Ref: CognitoIdentityPool
+  Domain:
+    Description: Amazon Cognito domain to use (include full domain if CertificateArn
+      used)
+    Value:
+      Ref: Domain
+  CognitoHostedUi:
+    Description: Amazon Cognito Hosted UI Url
+    Value:
+      Fn::If:
+      - HasDomainCertificate
+      - Ref: Domain
+      - Fn::Sub: https://${Domain}.auth.${AWS::Region}.amazoncognito.com
+
