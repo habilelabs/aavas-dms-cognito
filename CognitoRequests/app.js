@@ -528,7 +528,17 @@ function createUser(obj) {
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      Username: obj.username,
+      UserAttributes: [
+        {
+          Name: 'email',
+          Value: obj.username 
+        },
+        {
+          Name: 'email_verified',
+          Value: 'true' 
+        }
+      ]
     };
 
     return COGNITO_CLIENT.adminCreateUser(params).promise().then((data) => {
