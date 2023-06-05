@@ -524,11 +524,25 @@ function getRedirectUri(event) {
 }
 
 function createUser(obj) {
-  let requiredFields = ["username"];
+  let requiredFields = ["username","name"];
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      Username: obj.username,
+      UserAttributes: [
+        {
+          Name: 'email',
+          Value: obj.username 
+        },
+        {
+          Name: 'email_verified',
+          Value: 'true' 
+        },
+        {
+          Name: 'name',
+          Value: obj.name
+        }
+      ]
     };
 
     return COGNITO_CLIENT.adminCreateUser(params).promise().then((data) => {
@@ -537,7 +551,7 @@ function createUser(obj) {
       return response(400, error);
     });
   } else {
-    return response(400, { message: "missing fields 'username'" });
+    return response(400, { message: "missing fields 'username', 'name" });
   }
 }
 
@@ -574,7 +588,7 @@ function addUserToGroup(obj) {
       return response(400, error);
     });
   } else {
-    return response(400, { message: "missing fields 'username'" });
+    return response(400, { message: "missing fields 'username', 'groupname'" });
   }
 }
 
@@ -593,7 +607,7 @@ function removeUserFromGroup(obj) {
       return response(400, error);
     });
   } else {
-    return response(400, { message: "missing fields 'username'" });
+    return response(400, { message: "missing fields 'username', 'groupname'" });
   }
 }
 
@@ -666,7 +680,7 @@ function listUsersInGroup(obj) {
       return response(400, error);
     });
   } else {
-    return response(400, { message: "missing fields " });
+    return response(400, { message: "missing fields 'groupname'" });
   }
 }
 
@@ -694,17 +708,22 @@ function listGroupsForUser(obj) {
       return response(400, error);
     });
   } else {
-    return response(400, { message: "missing fields " });
+    return response(400, { message: "missing fields 'username'" });
   }
 }
 
 function updateUserAttributes(obj) {
-  let requiredFields = ["username", "attributes"];
+  let requiredFields = ["username", "name"];
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
       Username: obj.username,
-      UserAttributes: obj.attributes
+      UserAttributes: [
+        {
+          Name: 'name',
+          Value: obj.name
+        }
+      ]
     };
 
     return COGNITO_CLIENT.adminUpdateUserAttributes(params).promise().then((data) => {
