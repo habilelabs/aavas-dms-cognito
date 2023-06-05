@@ -79,13 +79,12 @@ exports.lambdaHandler = async (event, context) => {
     return adminAction(listUsers, event);    
   } else if (path != null && event.queryStringParameters != null) {
 
-    var body = event.queryStringParameters;
+    var obj = event.queryStringParameters;
     if (event.isBase64Encoded) {
-      let buff = Buffer.from(body, 'base64');
-      body = buff.toString('utf-8');
+      let buff = Buffer.from(obj, 'base64');
+      obj = buff.toString('utf-8');
     }
 
-    let obj = JSON.parse(body);
     if(path == "/deleteGroup"){
       return adminAction(deleteGroup, obj);  
     } else if (path == "/getUser"){
