@@ -60,28 +60,12 @@ exports.lambdaHandler = async (event, context) => {
       return respondToAuthChallenge(obj);
     } else if (path == "/createUser") {
       return adminAction(createUser, obj);
-    } else if (path == "/deleteUser") {
-      return adminAction(deleteUser, obj);
     } else if (path == "/addUserToGroup") {
       return adminAction(addUserToGroup, obj);
-    } else if (path == "/removeUserFromGroup") {
-      return adminAction(removeUserFromGroup, obj);
-    } else if (path == "/listGroups") {
-      return adminAction(listGroups, obj);
-    } else if (path == "/listUsers") {
-      return adminAction(listUsers, obj);
-    } else if (path == "/listUsersInGroup") {
-      return adminAction(listUsersInGroup, obj);
-    } else if (path == "/listGroupsForUser") {
-      return adminAction(listGroupsForUser, obj);
     } else if (path == "/updateUserAttributes") {
       return adminAction(updateUserAttributes, obj);
-    } else if (path == "/getUser") {
-      return adminAction(getUserData, obj);   
     } else if (path == "/createGroup") {
-      return adminAction(createGroup, obj);   
-    } else if (path == "/deleteGroup") {
-      return adminAction(deleteGroup, obj);      
+      return adminAction(createGroup, obj);     
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -90,9 +74,32 @@ exports.lambdaHandler = async (event, context) => {
   } else if (path != null && path == "/confirmRegistration") {
     return confirmRegistration(event, redirectUri);
   } else if (path != null && path == "/listGroups") {
-    return adminAction(listGroups);
+    return adminAction(listGroups, event);
   } else if (path != null && path == "/listUsers") {
-    return adminAction(listUsers);
+    return adminAction(listUsers, event);    
+  } else if (path != null && event.queryStringParameters != null) {
+
+    var obj = event.queryStringParameters;
+    if (event.isBase64Encoded) {
+      let buff = Buffer.from(obj, 'base64');
+      obj = buff.toString('utf-8');
+    }
+
+    if(path == "/deleteGroup"){
+      return adminAction(deleteGroup, obj);  
+    } else if (path == "/getUser"){
+      return adminAction(getUserData, obj); 
+    } else if (path == "/listGroupsForUser"){
+      return adminAction(listGroupsForUser, obj);
+    } else if (path == "/listUsersInGroup"){
+      return adminAction(listUsersInGroup, obj);
+    } else if (path == "/removeUserFromGroup"){
+      return adminAction(removeUserFromGroup, obj);
+    } else if (path == "/deleteUser"){
+      return adminAction(deleteUser, obj);
+    } else {
+      return response(400, { message: "invalid request" });
+    }
   } else if (event.httpMethod == "OPTIONS") {
     return response(200, { message: "it's all good" });
   } else {
@@ -611,14 +618,14 @@ function removeUserFromGroup(obj) {
   }
 }
 
-function listGroups(obj) {
+function listGroups(event) {
   let nextToken;
   let limit;
-  if (obj && obj.nextToken) {
-    nextToken = obj.nextToken;
+  if (event.queryStringParameters && event.queryStringParameters.nextToken) {
+    nextToken = event.queryStringParameters.nextToken;
   }
-  if (obj && obj.limit) {
-    limit = obj.limit;
+  if (event.queryStringParameters && event.queryStringParameters.limit) {
+    limit = event.queryStringParameters.limit;
   }
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
@@ -633,14 +640,14 @@ function listGroups(obj) {
   });
 }
 
-function listUsers(obj) {
+function listUsers(event) {
   let paginationToken;
   let limit;
-  if (obj && obj.paginationToken) {
-    paginationToken = obj.paginationToken;
+  if (event.queryStringParameters && event.queryStringParameters.paginationToken) {
+    paginationToken = event.queryStringParameters.paginationToken;
   }
-  if (obj && obj.limit) {
-    limit = obj.limit;
+  if (event.queryStringParameters && event.queryStringParameters.limit) {
+    limit = event.queryStringParameters.limit;
   }
   var params = {
     UserPoolId: process.env.USER_POOL_ID,

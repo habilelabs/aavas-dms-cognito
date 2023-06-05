@@ -385,16 +385,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'       
           /deleteUser:
-            post:
+            delete:
               description: Admin Delete Cognito User
               tags:
               - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoDeleteUser'
               responses:
                 '200':
                   description: 200 response
@@ -441,16 +435,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'   
           /removeUserFromGroup:
-            post:
+            delete:
               description: Admin Remove Cognito User From Group
               tags:
               - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoRemoveUserFromGroup'
               responses:
                 '200':
                   description: 200 response
@@ -469,12 +457,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'     
           /listGroups:
-            post:
+            get:
               description: List Groups In Cognito
               tags:
               - Cognito
-              requestBody:
-                required: true
               responses:
                 '200':
                   description: 200 response
@@ -493,16 +479,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
           /listUsersInGroup:
-            post:
+            get:
               description: List Users In Group
               tags:
               - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoListUsersInGroup'
               responses:
                 '200':
                   description: 200 response
@@ -521,12 +501,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
           /listUsers:
-            post:
+            get:
               description: List Users In Cognito
               tags:
               - Cognito
-              requestBody:
-                required: true
               responses:
                 '200':
                   description: 200 response
@@ -545,16 +523,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
           /listGroupsForUser:
-            post:
+            get:
               description: Admin List Groups For Cognito User
               tags:
               - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoListGroupsForUser'  
               responses:
                 '200':
                   description: 200 response
@@ -574,7 +546,7 @@ Resources:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
           /updateUserAttributes:
             post:
-              description: Admin List Groups For Cognito User
+              description: Admin update attributes of Cognito User
               tags:
               - Cognito
               requestBody:
@@ -601,16 +573,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200' 
           /getUser:
-            post:
+            get:
               description: Admin Get Cognito User
               tags:
               - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoGetUser'  
               responses:
                 '200':
                   description: 200 response
@@ -657,16 +623,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'    
           /deleteGroup:
-            post:
+            delete:
               description: Admin Delete Cognito Group
               tags:
-              - Cognito
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/CognitoDeleteGroup'  
+              - Cognito 
               responses:
                 '200':
                   description: 200 response
@@ -795,13 +755,6 @@ Resources:
               properties:
                 username:
                   type: string   
-            CognitoDeleteUser:
-              required:
-              - username
-              type: object
-              properties:
-                username:
-                  type: string   
             CognitoAddUserToGroup:
               required:
               - username
@@ -812,30 +765,6 @@ Resources:
                   type: string   
                 groupname:
                   type: string 
-            CognitoRemoveUserFromGroup:
-              required:
-              - username
-              - groupname
-              type: object
-              properties:
-                username:
-                  type: string   
-                groupname:
-                  type: string
-            CognitoListUsersInGroup:
-              required:
-              - groupname
-              type: object
-              properties:
-                groupname:
-                  type: string
-            CognitoListGroupsForUser:
-              required:
-              - username
-              type: object
-              properties:
-                username:
-                  type: string   
             CognitoUpdateUserAttributes:
               required:
               - username
@@ -843,27 +772,13 @@ Resources:
               properties:
                 username:
                   type: string 
-            CognitoGetUser:
-              required:
-              - username
-              type: object
-              properties:
-                username:
-                  type: string  
             CognitoCreateGroup:
               required:
               - groupname
               type: object
               properties:
                 groupname:
-                  type: string  
-            CognitoDeleteGroup:
-              required:
-              - groupname
-              type: object
-              properties:
-                groupname:
-                  type: string                                                         
+                  type: string                                                       
           securitySchemes:
             cognito-auth:
               type: "oauth2"
