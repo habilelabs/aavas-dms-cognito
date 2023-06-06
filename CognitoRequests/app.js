@@ -76,7 +76,24 @@ exports.lambdaHandler = async (event, context) => {
   } else if (path != null && path == "/listGroups") {
     return adminAction(listGroups, event);
   } else if (path != null && path == "/listUsers") {
-    return adminAction(listUsers, event);    
+    return adminAction(listUsers, event);   
+  } else if (path != null && event.pathParameters != null) {
+
+    var obj = event.pathParameters;
+    if (event.isBase64Encoded) {
+      let buff = Buffer.from(obj, 'base64');
+      obj = buff.toString('utf-8');
+    }
+
+    if(path.split("/")[1] == "deleteGroup"){
+      return adminAction(deleteGroup, obj);  
+    } else if (path.split("/")[1] == "getUser"){
+      return adminAction(getUserData, obj); 
+    } else if (path.split("/")[1] == "deleteUser"){
+      return adminAction(deleteUser, obj);
+    } else {
+      return response(400, { message: "invalid request" });
+    }
   } else if (path != null && event.queryStringParameters != null) {
 
     var obj = event.queryStringParameters;

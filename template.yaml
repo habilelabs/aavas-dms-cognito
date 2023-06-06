@@ -384,11 +384,13 @@ Resources:
                 - cognito-auth: []                      
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'       
-          /deleteUser:
+          /deleteUser/{username}:
             delete:
               description: Admin Delete Cognito User
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/usernameParam'               
               responses:
                 '200':
                   description: 200 response
@@ -439,6 +441,9 @@ Resources:
               description: Admin Remove Cognito User From Group
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/usernameQueryParam' 
+              - $ref: '#/components/parameters/groupnameQueryParam'              
               responses:
                 '200':
                   description: 200 response
@@ -461,6 +466,9 @@ Resources:
               description: List Groups In Cognito
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/limitParam' 
+              - $ref: '#/components/parameters/nextTokenParam'                
               responses:
                 '200':
                   description: 200 response
@@ -483,6 +491,10 @@ Resources:
               description: List Users In Group
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/groupnameQueryParam' 
+              - $ref: '#/components/parameters/limitParam' 
+              - $ref: '#/components/parameters/nextTokenParam'               
               responses:
                 '200':
                   description: 200 response
@@ -505,6 +517,9 @@ Resources:
               description: List Users In Cognito
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/limitParam' 
+              - $ref: '#/components/parameters/paginationTokenParam'               
               responses:
                 '200':
                   description: 200 response
@@ -527,6 +542,10 @@ Resources:
               description: Admin List Groups For Cognito User
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/usernameQueryParam' 
+              - $ref: '#/components/parameters/limitParam' 
+              - $ref: '#/components/parameters/nextTokenParam'               
               responses:
                 '200':
                   description: 200 response
@@ -572,11 +591,13 @@ Resources:
                 - cognito-auth: []                            
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200' 
-          /getUser:
+          /getUser/{username}:
             get:
               description: Admin Get Cognito User
               tags:
               - Cognito
+              parameters:
+              - $ref: '#/components/parameters/usernameParam' 
               responses:
                 '200':
                   description: 200 response
@@ -622,11 +643,13 @@ Resources:
                 - cognito-auth: []                            
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'    
-          /deleteGroup:
+          /deleteGroup/{groupname}:
             delete:
               description: Admin Delete Cognito Group
               tags:
               - Cognito 
+              parameters:
+              - $ref: '#/components/parameters/groupnameParam'                
               responses:
                 '200':
                   description: 200 response
@@ -666,6 +689,55 @@ Resources:
               required: true
               schema:
                 type: string
+            groupnameParam:
+              name: groupname
+              in: path
+              description: path parameter for groupname
+              required: true
+              schema:
+                type: string
+            usernameParam:
+              name: username
+              in: path
+              description: path parameter for username
+              required: true
+              schema:
+                type: string
+            groupnameQueryParam:
+              name: groupname
+              in: query
+              description: query parameter for groupname
+              required: true
+              schema:
+                type: string
+            usernameQueryParam:
+              name: username
+              in: query
+              description: query parameter for username
+              required: true
+              schema:
+                type: string                
+            limitParam:
+              name: limit
+              in: query
+              description: query parameter for limit
+              required: false
+              schema:
+                type: string   
+            paginationTokenParam:
+              name: paginationToken
+              in: query
+              description: query parameter for paginationToken
+              required: false
+              schema:
+                type: string   
+            nextTokenParam:
+              name: nextToken
+              in: query
+              description: query parameter for nextToken
+              required: false
+              schema:
+                type: string                                                                                
           schemas:
             RefreshToken:
               required:
