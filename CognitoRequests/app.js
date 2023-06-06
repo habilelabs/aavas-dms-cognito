@@ -101,19 +101,13 @@ exports.lambdaHandler = async (event, context) => {
       let buff = Buffer.from(obj, 'base64');
       obj = buff.toString('utf-8');
     }
-
-    if(path == "/deleteGroup"){
-      return adminAction(deleteGroup, obj);  
-    } else if (path == "/getUser"){
-      return adminAction(getUserData, obj); 
-    } else if (path == "/listGroupsForUser"){
+    
+    if (path == "/listGroupsForUser"){
       return adminAction(listGroupsForUser, obj);
     } else if (path == "/listUsersInGroup"){
       return adminAction(listUsersInGroup, obj);
     } else if (path == "/removeUserFromGroup"){
       return adminAction(removeUserFromGroup, obj);
-    } else if (path == "/deleteUser"){
-      return adminAction(deleteUser, obj);
     } else {
       return response(400, { message: "invalid request" });
     }
