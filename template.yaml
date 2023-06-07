@@ -462,13 +462,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'     
           /listGroups:
-            get:
+            post:
               description: List Groups In Cognito
               tags:
-              - Cognito
-              parameters:
-              - $ref: '#/components/parameters/limitParam' 
-              - $ref: '#/components/parameters/nextTokenParam'                
+              - Cognito            
               responses:
                 '200':
                   description: 200 response
@@ -487,14 +484,16 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
           /listUsersInGroup:
-            get:
+            post:
               description: List Users In Group
               tags:
               - Cognito
-              parameters:
-              - $ref: '#/components/parameters/groupnameQueryParam' 
-              - $ref: '#/components/parameters/limitParam' 
-              - $ref: '#/components/parameters/nextTokenParam'               
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoListUsersInGroup'              
               responses:
                 '200':
                   description: 200 response
@@ -513,13 +512,10 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
           /listUsers:
-            get:
+            post:
               description: List Users In Cognito
               tags:
-              - Cognito
-              parameters:
-              - $ref: '#/components/parameters/limitParam' 
-              - $ref: '#/components/parameters/paginationTokenParam'               
+              - Cognito           
               responses:
                 '200':
                   description: 200 response
@@ -538,14 +534,16 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'
           /listGroupsForUser:
-            get:
+            post:
               description: Admin List Groups For Cognito User
               tags:
               - Cognito
-              parameters:
-              - $ref: '#/components/parameters/usernameQueryParam' 
-              - $ref: '#/components/parameters/limitParam' 
-              - $ref: '#/components/parameters/nextTokenParam'               
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoListGroupsForUser'              
               responses:
                 '200':
                   description: 200 response
@@ -850,7 +848,21 @@ Resources:
               type: object
               properties:
                 groupname:
-                  type: string                                                       
+                  type: string   
+            CognitoListGroupsForUser:
+              required:
+              - username
+              type: object
+              properties:
+                username:
+                  type: string 
+            CognitoListUsersInGroup:
+              required:
+              - groupname
+              type: object
+              properties:
+                groupname:
+                  type: string   
           securitySchemes:
             cognito-auth:
               type: "oauth2"

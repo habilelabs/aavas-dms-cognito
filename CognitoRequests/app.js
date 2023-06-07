@@ -65,7 +65,15 @@ exports.lambdaHandler = async (event, context) => {
     } else if (path == "/updateUserAttributes") {
       return adminAction(updateUserAttributes, obj);
     } else if (path == "/createGroup") {
-      return adminAction(createGroup, obj);     
+      return adminAction(createGroup, obj);  
+    } else if (path == "/listGroupsForUser") {
+      return adminAction(listGroupsForUser, obj);
+    } else if (path == "/listUsersInGroup") {
+      return adminAction(listUsersInGroup, obj);  
+    } else if (path == "/listGroups") {
+      return adminAction(listGroups, obj);
+    } else if (path == "/listUsers") {
+      return adminAction(listUsers, obj);         
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -74,9 +82,9 @@ exports.lambdaHandler = async (event, context) => {
   } else if (path != null && path == "/confirmRegistration") {
     return confirmRegistration(event, redirectUri);
   } else if (path != null && path == "/listGroups") {
-    return adminAction(listGroups, event);
+    return adminAction(listGroups);
   } else if (path != null && path == "/listUsers") {
-    return adminAction(listUsers, event);   
+    return adminAction(listUsers);   
   } else if (path != null && event.pathParameters != null) {
 
     var obj = event.pathParameters;
@@ -102,11 +110,7 @@ exports.lambdaHandler = async (event, context) => {
       obj = buff.toString('utf-8');
     }
     
-    if (path == "/listGroupsForUser"){
-      return adminAction(listGroupsForUser, obj);
-    } else if (path == "/listUsersInGroup"){
-      return adminAction(listUsersInGroup, obj);
-    } else if (path == "/removeUserFromGroup"){
+    if (path == "/removeUserFromGroup"){
       return adminAction(removeUserFromGroup, obj);
     } else {
       return response(400, { message: "invalid request" });
@@ -629,14 +633,14 @@ function removeUserFromGroup(obj) {
   }
 }
 
-function listGroups(event) {
+function listGroups(obj) {
   let nextToken;
   let limit;
-  if (event.queryStringParameters && event.queryStringParameters.nextToken) {
-    nextToken = event.queryStringParameters.nextToken;
+  if (obj && obj.nextToken) {
+    nextToken = obj.nextToken;
   }
-  if (event.queryStringParameters && event.queryStringParameters.limit) {
-    limit = event.queryStringParameters.limit;
+  if (obj && obj.limit) {
+    limit = obj.limit;
   }
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
@@ -651,14 +655,14 @@ function listGroups(event) {
   });
 }
 
-function listUsers(event) {
+function listUsers(obj) {
   let paginationToken;
   let limit;
-  if (event.queryStringParameters && event.queryStringParameters.paginationToken) {
-    paginationToken = event.queryStringParameters.paginationToken;
+  if (obj && obj.paginationToken) {
+    paginationToken = obj.paginationToken;
   }
-  if (event.queryStringParameters && event.queryStringParameters.limit) {
-    limit = event.queryStringParameters.limit;
+  if (obj && obj.limit) {
+    limit = obj.limit;
   }
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
@@ -796,7 +800,7 @@ function deleteGroup(obj) {
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      groupName: obj.groupname
+      GroupName: obj.groupname
     };
 
     return COGNITO_CLIENT.deleteGroup(params).promise().then((data) => {
