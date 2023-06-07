@@ -343,7 +343,7 @@ function forgotPassword(obj) {
 
     }).catch((error) => {
       if (error.code === "UserNotFoundException") {
-        return response(200, { message: "Password reset sent" });
+        return response(201, { message: "This email is not registered" });
       } else {
         return response(400, error);
       }
