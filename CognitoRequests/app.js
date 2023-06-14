@@ -65,15 +65,15 @@ exports.lambdaHandler = async (event, context) => {
     } else if (path == "/updateUserAttributes") {
       return adminAction(updateUserAttributes, obj);
     } else if (path == "/createGroup") {
-      return adminAction(createGroup, obj);  
+      return adminAction(createGroup, obj);
     } else if (path == "/listGroupsForUser") {
       return adminAction(listGroupsForUser, obj);
     } else if (path == "/listUsersInGroup") {
-      return adminAction(listUsersInGroup, obj);  
+      return adminAction(listUsersInGroup, obj);
     } else if (path == "/listGroups") {
       return adminAction(listGroups, obj);
     } else if (path == "/listUsers") {
-      return adminAction(listUsers, obj);         
+      return adminAction(listUsers, obj);
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -84,7 +84,7 @@ exports.lambdaHandler = async (event, context) => {
   } else if (path != null && path == "/listGroups") {
     return adminAction(listGroups);
   } else if (path != null && path == "/listUsers") {
-    return adminAction(listUsers);   
+    return adminAction(listUsers);
   } else if (path != null && event.pathParameters != null) {
 
     var obj = event.pathParameters;
@@ -93,11 +93,11 @@ exports.lambdaHandler = async (event, context) => {
       obj = buff.toString('utf-8');
     }
 
-    if(path.split("/")[1] == "deleteGroup"){
-      return adminAction(deleteGroup, obj);  
-    } else if (path.split("/")[1] == "getUser"){
-      return adminAction(getUserData, obj); 
-    } else if (path.split("/")[1] == "deleteUser"){
+    if (path.split("/")[1] == "deleteGroup") {
+      return adminAction(deleteGroup, obj);
+    } else if (path.split("/")[1] == "getUser") {
+      return adminAction(getUserData, obj);
+    } else if (path.split("/")[1] == "deleteUser") {
       return adminAction(deleteUser, obj);
     } else {
       return response(400, { message: "invalid request" });
@@ -109,8 +109,8 @@ exports.lambdaHandler = async (event, context) => {
       let buff = Buffer.from(obj, 'base64');
       obj = buff.toString('utf-8');
     }
-    
-    if (path == "/removeUserFromGroup"){
+
+    if (path == "/removeUserFromGroup") {
       return adminAction(removeUserFromGroup, obj);
     } else {
       return response(400, { message: "invalid request" });
@@ -546,7 +546,7 @@ function getRedirectUri(event) {
 }
 
 function createUser(obj) {
-  let requiredFields = ["username","name"];
+  let requiredFields = ["username", "name"];
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
@@ -554,11 +554,11 @@ function createUser(obj) {
       UserAttributes: [
         {
           Name: 'email',
-          Value: obj.username 
+          Value: obj.username
         },
         {
           Name: 'email_verified',
-          Value: 'true' 
+          Value: 'true'
         },
         {
           Name: 'name',
@@ -568,7 +568,17 @@ function createUser(obj) {
     };
 
     return COGNITO_CLIENT.adminCreateUser(params).promise().then((data) => {
-      return response(200, { message: "user created", data: data });
+      var params = {
+        GroupName: "default_read",
+        UserPoolId: process.env.USER_POOL_ID,
+        Username: obj.username
+      };
+
+      return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((dataGroup) => {
+        return response(200, { message: "user created and added to default (read access) group", data: data });
+      }).catch((error) => {
+        return response(400, error);
+      });
     }).catch((error) => {
       return response(400, error);
     });
@@ -596,16 +606,50 @@ function deleteUser(obj) {
 }
 
 function addUserToGroup(obj) {
+  let groupName;
+  let groupList = [];
+  let reverseGroup;
   let requiredFields = ["username", "groupname"];
   if (isValidFields(obj, requiredFields)) {
+    groupName = obj.groupname;
+    reverseGroup = `${obj.groupname}_read`;
+    if (obj.readOnly && obj.readOnly == true) {
+      groupName = `${obj.groupname}_read`;
+      reverseGroup = obj.groupname;
+    }
     var params = {
-      GroupName: obj.groupname,
+      GroupName: groupName,
       UserPoolId: process.env.USER_POOL_ID,
       Username: obj.username
     };
 
     return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((data) => {
-      return response(200, { message: "user added to group", data: data });
+      var paramsUser = {
+        UserPoolId: process.env.USER_POOL_ID,
+        Username: obj.username
+      };
+
+      return COGNITO_CLIENT.adminListGroupsForUser(paramsUser).promise().then((data) => {
+        for (let i = 0; i < data.Groups.length; i++) {
+          groupList.push(data.Groups[i].GroupName);
+        }
+        if (groupList.indexOf(reverseGroup) > -1) {
+          var params = {
+            GroupName: reverseGroup,
+            UserPoolId: process.env.USER_POOL_ID,
+            Username: obj.username
+          };
+
+          return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+            return response(200, { message: "user added to group" });
+          }).catch((error) => {
+            return response(400, error);
+          });
+        }
+        return response(200, { message: "user added to group" });
+      }).catch((error) => {
+        return response(400, error);
+      });
     }).catch((error) => {
       return response(400, error);
     });
@@ -615,16 +659,45 @@ function addUserToGroup(obj) {
 }
 
 function removeUserFromGroup(obj) {
+  let groupList = [];
   let requiredFields = ["username", "groupname"];
   if (isValidFields(obj, requiredFields)) {
-    var params = {
-      GroupName: obj.groupname,
+    var paramsUser = {
       UserPoolId: process.env.USER_POOL_ID,
       Username: obj.username
     };
 
-    return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-      return response(200, { message: "user removed", data: data });
+    return COGNITO_CLIENT.adminListGroupsForUser(paramsUser).promise().then((data) => {
+      for (let i = 0; i < data.Groups.length; i++) {
+        groupList.push(data.Groups[i].GroupName);
+      }
+      if (groupList.indexOf(obj.groupname) > -1) {
+        var params = {
+          GroupName: obj.groupname,
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+
+        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+          return response(200, { message: "user removed" });
+        }).catch((error) => {
+          return response(400, error);
+        });
+      } else if (groupList.indexOf(`${obj.groupname}_read`) > -1) {
+        var params = {
+          GroupName: `${obj.groupname}_read`,
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+
+        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+          return response(200, { message: "user removed" });
+        }).catch((error) => {
+          return response(400, error);
+        });
+      } else {
+        return response(201, { message: "user is not in group" });
+      }
     }).catch((error) => {
       return response(400, error);
     });
@@ -649,7 +722,22 @@ function listGroups(obj) {
   };
 
   return COGNITO_CLIENT.listGroups(params).promise().then((data) => {
-    return response(200, { message: "list group", data: data });
+    for (var i = 0; i < data.Groups.length; i++) {
+      if (data.Groups[i].GroupName.includes("_read")) {
+        data.Groups.splice(i, 1);
+      } else if (data.Groups[i].GroupName === "Admins") {
+        data.Groups.splice(i, 1)
+      }
+    }
+    list = list.concat(data.Groups);
+    if (data.NextToken && !limit) {
+      obj["nextToken"] = data.NextToken;
+      return listGroups(obj);
+    } else {
+      data.Groups = list;
+      return response(200, { message: "list group", data: data });
+    }
+
   }).catch((error) => {
     return response(400, error);
   });
@@ -671,33 +759,51 @@ function listUsers(obj) {
   };
 
   return COGNITO_CLIENT.listUsers(params).promise().then((data) => {
-    return response(200, { message: "list users", data: data });
+    list = list.concat(data.Users);
+    if (data.PaginationToken && !limit) {
+      obj["paginationToken"] = data.PaginationToken;
+      return listUsers(obj);
+    } else {
+      data.Users = list;
+      return response(200, { message: "list users", data: data });
+    }
   }).catch((error) => {
     return response(400, error);
   });
-
 }
 
 function listUsersInGroup(obj) {
   let requiredFields = ["groupname"];
   let nextToken;
   let limit;
+  let groupName;
   if (isValidFields(obj, requiredFields)) {
+    groupName = obj.groupame;
     if (obj && obj.nextToken) {
       nextToken = obj.nextToken;
     }
     if (obj && obj.limit) {
       limit = obj.limit;
     }
+    if (obj && obj.readOnly) {
+      groupName = `${obj.groupname}_read`
+    }
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      GroupName: obj.groupname,
+      GroupName: groupName,
       Limit: limit,
       NextToken: nextToken
     };
 
     return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
-      return response(200, { message: "list users", data: data });
+      list = list.concat(data.Users);
+      if (data.NextToken && !limit) {
+        obj["nextToken"] = data.NextToken;
+        return listUsersInGroup(obj);
+      } else {
+        data.Users = list;
+        return response(200, { message: "list users", data: data });
+      }
     }).catch((error) => {
       return response(400, error);
     });
@@ -725,7 +831,14 @@ function listGroupsForUser(obj) {
     };
 
     return COGNITO_CLIENT.adminListGroupsForUser(params).promise().then((data) => {
-      return response(200, { message: "list group for user", data: data });
+      list = list.concat(data.Groups);
+      if (data.NextToken && !limit) {
+        obj["nextToken"] = data.NextToken;
+        return listGroupsForUser(obj);
+      } else {
+        data.Groups = list;
+        return response(200, { message: "list of groups for user", data: data });
+      }
     }).catch((error) => {
       return response(400, error);
     });
@@ -767,7 +880,17 @@ function getUserData(obj) {
     };
 
     return COGNITO_CLIENT.adminGetUser(params).promise().then((data) => {
-      return response(200, { message: "user data", data: data });
+      var paramsGroup = {
+        UserPoolId: process.env.USER_POOL_ID,
+        Username: obj.username
+      };
+
+      return COGNITO_CLIENT.adminListGroupsForUser(paramsGroup).promise().then((dataGroup) => {
+        data["UserGroups"] = dataGroup.Groups;
+        return response(200, { message: "user data", data: data });
+      }).catch((error) => {
+        return response(400, error);
+      });
     }).catch((error) => {
       return response(400, error);
     });
@@ -779,14 +902,24 @@ function getUserData(obj) {
 function createGroup(obj) {
   let requiredFields = ["groupname"];
   if (isValidFields(obj, requiredFields)) {
-    var params = {
+    var paramsRead = {
       UserPoolId: process.env.USER_POOL_ID,
-      GroupName: obj.groupname,
-      Description: obj.description
+      GroupName: `${obj.groupname}_read`,
+      Description: `read only access to ${obj.groupname}`
     };
 
-    return COGNITO_CLIENT.createGroup(params).promise().then((data) => {
-      return response(200, { message: "group created", data: data });
+    return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
+      var params = {
+        UserPoolId: process.env.USER_POOL_ID,
+        GroupName: obj.groupname,
+        Description: obj.description
+      };
+      
+      return COGNITO_CLIENT.createGroup(params).promise().then((data) => {
+        return response(200, { message: "group created", data: data });
+      }).catch((error) => {
+        return response(400, error);
+      })
     }).catch((error) => {
       return response(400, error);
     });
@@ -798,13 +931,22 @@ function createGroup(obj) {
 function deleteGroup(obj) {
   let requiredFields = ["groupname"];
   if (isValidFields(obj, requiredFields)) {
-    var params = {
+    var paramsRead = {
       UserPoolId: process.env.USER_POOL_ID,
-      GroupName: obj.groupname
+      GroupName: `${obj.groupname}_read`
     };
 
-    return COGNITO_CLIENT.deleteGroup(params).promise().then((data) => {
-      return response(200, { message: "group deleted", data: data });
+    return COGNITO_CLIENT.deleteGroup(paramsRead).promise().then((data) => {
+      var params = {
+        UserPoolId: process.env.USER_POOL_ID,
+        GroupName: obj.groupname
+      };
+
+      return COGNITO_CLIENT.deleteGroup(params).promise().then((data) => {
+        return response(200, { message: "group deleted" });
+      }).catch((error) => {
+        return response(400, error);
+      })
     }).catch((error) => {
       return response(400, error);
     });
