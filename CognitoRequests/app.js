@@ -7,6 +7,8 @@ const COGNITO_CLIENT = new AWS.CognitoIdentityServiceProvider({
   region: process.env.REGION
 });
 
+let list = [];
+
 /**
  *
  * Cognito Request Handler.
