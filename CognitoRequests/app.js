@@ -686,13 +686,13 @@ function removeUserFromGroup(obj) {
           return response(400, error);
         });
       } else if (groupList.indexOf(`${obj.groupname}_read`) > -1) {
-        var params = {
+        var paramsRead = {
           GroupName: `${obj.groupname}_read`,
           UserPoolId: process.env.USER_POOL_ID,
           Username: obj.username
         };
 
-        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+        return COGNITO_CLIENT.adminRemoveUserFromGroup(paramsRead).promise().then((data) => {
           return response(200, { message: "user removed" });
         }).catch((error) => {
           return response(400, error);
@@ -728,7 +728,7 @@ function listGroups(obj) {
       if (data.Groups[i].GroupName.includes("_read")) {
         data.Groups.splice(i, 1);
       } else if (data.Groups[i].GroupName === "Admins") {
-        data.Groups.splice(i, 1)
+        data.Groups.splice(i, 1);
       }
     }
     list = list.concat(data.Groups);
@@ -737,6 +737,7 @@ function listGroups(obj) {
       return listGroups(obj);
     } else {
       data.Groups = list;
+      list = [];
       return response(200, { message: "list group", data: data });
     }
 
@@ -759,7 +760,6 @@ function listUsers(obj) {
     Limit: limit,
     PaginationToken: paginationToken
   };
-
   return COGNITO_CLIENT.listUsers(params).promise().then((data) => {
     list = list.concat(data.Users);
     if (data.PaginationToken && !limit) {
@@ -767,6 +767,7 @@ function listUsers(obj) {
       return listUsers(obj);
     } else {
       data.Users = list;
+      list = [];
       return response(200, { message: "list users", data: data });
     }
   }).catch((error) => {
@@ -788,7 +789,7 @@ function listUsersInGroup(obj) {
       limit = obj.limit;
     }
     if (obj && obj.readOnly) {
-      groupName = `${obj.groupname}_read`
+      groupName = `${obj.groupname}_read`;
     }
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
@@ -804,6 +805,7 @@ function listUsersInGroup(obj) {
         return listUsersInGroup(obj);
       } else {
         data.Users = list;
+        list = [];
         return response(200, { message: "list users", data: data });
       }
     }).catch((error) => {
@@ -839,6 +841,7 @@ function listGroupsForUser(obj) {
         return listGroupsForUser(obj);
       } else {
         data.Groups = list;
+        list = [];
         return response(200, { message: "list of groups for user", data: data });
       }
     }).catch((error) => {
@@ -921,7 +924,7 @@ function createGroup(obj) {
         return response(200, { message: "group created", data: data });
       }).catch((error) => {
         return response(400, error);
-      })
+      });
     }).catch((error) => {
       return response(400, error);
     });
@@ -948,7 +951,7 @@ function deleteGroup(obj) {
         return response(200, { message: "group deleted" });
       }).catch((error) => {
         return response(400, error);
-      })
+      });
     }).catch((error) => {
       return response(400, error);
     });
