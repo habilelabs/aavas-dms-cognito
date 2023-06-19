@@ -794,7 +794,7 @@ function listUsersInGroup(obj) {
   let limit;
   let groupName;
   if (isValidFields(obj, requiredFields)) {
-    groupName = obj.groupame;
+    groupName = obj.groupname;
     if (obj && obj.nextToken) {
       nextToken = obj.nextToken;
     }
