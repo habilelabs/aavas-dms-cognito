@@ -437,13 +437,16 @@ Resources:
               x-amazon-apigateway-integration:
                 $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'   
           /removeUserFromGroup:
-            delete:
+            post:
               description: Admin Remove Cognito User From Group
               tags:
-              - Cognito
-              parameters:
-              - $ref: '#/components/parameters/usernameQueryParam' 
-              - $ref: '#/components/parameters/groupnameQueryParam'              
+              - Cognito  
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoRemoveUserFromGroup'                       
               responses:
                 '200':
                   description: 200 response
@@ -827,14 +830,24 @@ Resources:
                   type: string   
             CognitoAddUserToGroup:
               required:
-              - username
               - groupname
+              - users
               type: object
               properties:
-                username:
-                  type: string   
                 groupname:
                   type: string 
+                users:
+                  type: array                   
+            CognitoRemoveUserFromGroup:
+              required:
+              - groupname
+              - users
+              type: object
+              properties:
+                groupname:
+                  type: string  
+                users:
+                  type: array                                     
             CognitoUpdateUserAttributes:
               required:
               - username
