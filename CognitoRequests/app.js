@@ -560,13 +560,12 @@ function createUser(obj) {
 
     return COGNITO_CLIENT.adminCreateUser(params).promise().then((data) => {
       var params = {
-        GroupName: "default_read",
+        GroupName: "default",
         UserPoolId: process.env.USER_POOL_ID,
         Username: obj.username
       };
-
       return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((dataGroup) => {
-        return response(200, { message: "user created and added to default (read access) group", data: data });
+        return response(200, { message: "user created and added to default group", data: data });
       }).catch((error) => {
         return response(400, error);
       });
@@ -632,20 +631,20 @@ function addUserToGroup(obj) {
           };
 
           return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-            return { statusCode : 200 , message : data}
+            return { statusCode: 200, message: data };
           }).catch((error) => {
-            return { statusCode : 400 , message : error }
+            return { statusCode: 400, message: error };
           });
         }
-        return { statusCode : 200 , message : data }
+        return { statusCode: 200, message: data };
       }).catch((error) => {
-        return { statusCode : 400 , message : error }
+        return { statusCode: 400, message: error };
       });
     }).catch((error) => {
-      return { statusCode : 400 , message : error }
+      return { statusCode: 400, message: error };
     });
   } else {
-    return { statusCode : 400, message : "missing fields 'username', 'groupname'" }
+    return { statusCode: 400, message: "missing fields 'username', 'groupname'" };
   }
 }
 
@@ -653,12 +652,12 @@ async function addUsersToGroup(obj) {
   let users = obj.users;
   for (let i = 0; i < users.length; i++) {
     users[i]["groupname"] = obj.groupname;
-    let add = await addUserToGroup(users[i])
-    if(add.statusCode == 400){
-      return response(400, { message : add.message })
+    let add = await addUserToGroup(users[i]);
+    if (add.statusCode == 400) {
+      return response(400, { message: add.message });
     }
   }
-  return response(200, { message: "users added to group" })
+  return response(200, { message: "users added to group" });
 }
 
 function removeUserFromGroup(obj) {
@@ -681,9 +680,9 @@ function removeUserFromGroup(obj) {
           Username: obj.username
         };
         return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-          return { statusCode : 200 , message : data };
+          return { statusCode: 200, message: data };
         }).catch((error) => {
-          return { statusCode : 400 , message : error };
+          return { statusCode: 400, message: error };
         });
       } else if (groupList.indexOf(`${obj.groupname}_read`) > -1) {
         var params = {
@@ -692,18 +691,18 @@ function removeUserFromGroup(obj) {
           Username: obj.username
         };
         return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-          return { statusCode : 200 , message : data };
+          return { statusCode: 200, message: data };
         }).catch((error) => {
-          return { statusCode : 400 , message : error };
+          return { statusCode: 400, message: error };
         });
       } else {
-        return { statusCode : 201, message : "user is not in group" };
+        return { statusCode: 201, message: "user is not in group" };
       }
     }).catch((error) => {
-      return { statusCode : 400 , message : error }
+      return { statusCode: 400, message: error };
     });
   } else {
-    return { statusCode : 400 , message : "missing fields 'username', 'groupname'" };
+    return { statusCode: 400, message: "missing fields 'username', 'groupname'" };
   }
 }
 
@@ -712,10 +711,10 @@ async function removeUsersFromGroup(obj) {
   for (let i = 0; i < users.length; i++) {
     users[i]["groupname"] = obj.groupname;
     let remove = await removeUserFromGroup(users[i]);
-    if(remove.statusCode == 400){
-      return response(400, { message : remove.message })
-    }else if (remove.statusCode == 201){
-      return response(201, { message : remove.message})
+    if (remove.statusCode == 400) {
+      return response(400, { message: remove.message });
+    } else if (remove.statusCode == 201) {
+      return response(201, { message: remove.message });
     }
   }
   return response(200, { message: "users removed from group" })
@@ -724,12 +723,18 @@ async function removeUsersFromGroup(obj) {
 function listGroups(obj) {
   let nextToken;
   let limit;
+  let filter;
+  let filterGroup = [];
   if (obj && obj.nextToken) {
     nextToken = obj.nextToken;
   }
   if (obj && obj.limit) {
     limit = obj.limit;
   }
+  if (obj && obj.filter) {
+    filter = obj.filter;
+  }
+
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
     Limit: limit,
@@ -738,22 +743,26 @@ function listGroups(obj) {
 
   return COGNITO_CLIENT.listGroups(params).promise().then((data) => {
     for (var i = 0; i < data.Groups.length; i++) {
-      if (data.Groups[i].GroupName.includes("_read")) {
-        data.Groups.splice(i, 1);
-      } else if (data.Groups[i].GroupName === "Admins") {
-        data.Groups.splice(i, 1);
+      if (!data.Groups[i].GroupName.includes("_read") && (data.Groups[i].GroupName !== "Admins") && (data.Groups[i].GroupName !== "default")) {
+        list.push(data.Groups[i]);
       }
     }
-    list = list.concat(data.Groups);
     if (data.NextToken && !limit) {
       obj["nextToken"] = data.NextToken;
       return listGroups(obj);
     } else {
+      if (filter) {
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].GroupName.toLowerCase().includes(filter.toLowerCase())) {
+            filterGroup.push(list[i]);
+          }
+        }
+        list = filterGroup;
+      }
       data.Groups = list;
       list = [];
       return response(200, { message: "list group", data: data });
     }
-
   }).catch((error) => {
     return response(400, error);
   });
@@ -762,23 +771,38 @@ function listGroups(obj) {
 function listUsers(obj) {
   let paginationToken;
   let limit;
+  let filter;
+  let filterUser = [];
   if (obj && obj.paginationToken) {
     paginationToken = obj.paginationToken;
   }
   if (obj && obj.limit) {
     limit = obj.limit;
   }
+  if (obj && obj.filter) {
+    filter = obj.filter;
+  }
+
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
     Limit: limit,
     PaginationToken: paginationToken
   };
+
   return COGNITO_CLIENT.listUsers(params).promise().then((data) => {
     list = list.concat(data.Users);
     if (data.PaginationToken && !limit) {
       obj["paginationToken"] = data.PaginationToken;
       return listUsers(obj);
     } else {
+      if (filter) {
+        for (let j = 0; j < list.length; j++) {
+          if (list[j].Attributes[list[j].Attributes.length - 1].Value.toLowerCase().includes(filter.toLowerCase()) || list[j].Attributes[list[j].Attributes.length - 2].Value.toLowerCase().includes(filter.toLowerCase())) {
+            filterUser.push(list[j])
+          }
+        }
+        list = filterUser;
+      }
       data.Users = list;
       list = [];
       return response(200, { message: "list users", data: data });
@@ -817,6 +841,9 @@ function listUsersInGroup(obj) {
         obj["nextToken"] = data.NextToken;
         return listUsersInGroup(obj);
       } else {
+        for (let k = 0; k < list.length; k++) {
+          list[k]["readOnly"] = (obj.readOnly ? obj.readOnly : 0);
+        }
         data.Users = list;
         list = [];
         return response(200, { message: "list users", data: data });
@@ -848,7 +875,11 @@ function listGroupsForUser(obj) {
     };
 
     return COGNITO_CLIENT.adminListGroupsForUser(params).promise().then((data) => {
-      list = list.concat(data.Groups);
+      for (var i = 0; i < data.Groups.length; i++) {
+        if ((data.Groups[i].GroupName !== "default_read") && (data.Groups[i].GroupName !== "default")) {
+          list.push(data.Groups[i]);
+        }
+      }
       if (data.NextToken && !limit) {
         obj["nextToken"] = data.NextToken;
         return listGroupsForUser(obj);
@@ -932,7 +963,7 @@ function createGroup(obj) {
         GroupName: obj.groupname,
         Description: obj.description
       };
-      
+
       return COGNITO_CLIENT.createGroup(params).promise().then((data) => {
         return response(200, { message: "group created", data: data });
       }).catch((error) => {
