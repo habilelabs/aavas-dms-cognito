@@ -78,6 +78,8 @@ exports.lambdaHandler = async (event, context) => {
       return adminAction(listUsers, obj);
     } else if (path == "/removeUserFromGroup") {
       return adminAction(removeUsersFromGroup, obj);
+    } else if (path == "/updateUserStatus") {
+      return adminAction(upadateUsersStatus, obj);      
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -1002,4 +1004,43 @@ function deleteGroup(obj) {
   } else {
     return response(400, { message: "missing required fields" });
   }
+}
+
+function updateUserStatus(obj) {
+  let requiredFields = ["username", "status"];
+  if (isValidFields(obj, requiredFields)) {
+    var params = {
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: obj.username
+    };
+
+    if (obj.status === "enable") {
+      return COGNITO_CLIENT.adminEnableUser(params).promise().then((data) => {
+        return { statusCode: 200, message: data };
+      }).catch((error) => {
+        return { statusCode: 400, message: error };
+      });
+    } else if (obj.status === "disable") {
+      return COGNITO_CLIENT.adminDisableUser(params).promise().then((data) => {
+        return { statusCode: 200, message: data };
+      }).catch((error) => {
+        return { statusCode: 400, message: error };
+      });
+    } else {
+      return { statusCode: 400, message: "status can only enable, disable" };
+    }
+  } else {
+    return { statusCode: 400, message: "missing fields 'username', 'status'" };
+  }
+}
+
+async function upadateUsersStatus(obj) {
+  let users = obj.users;
+  for (let i = 0; i < users.length; i++) {
+    let update = await updateUserStatus(users[i]);
+    if (update.statusCode == 400) {
+      return response(400, { message: update.message });
+    }
+  }
+  return response(200, { message: "users status updated" })
 }
