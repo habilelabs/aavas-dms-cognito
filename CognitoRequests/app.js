@@ -838,6 +838,15 @@ function listUsersInGroup(obj) {
         obj["nextToken"] = data.NextToken;
         return listUsersInGroup(obj);
       } else {
+        for (let i = 0; i < list.length; i++) {
+          if (obj.groupname.split("_").pop() === "read") {
+            list[i]["Permission"] = "Read";
+          } else if (obj.groupname.split("_").pop() === "fullaccess") {
+            list[i]["Permission"] = "Full Access"
+          } else {
+            list[i]["Permission"] = "Read and Write"
+          }
+        }
         data.Users = list;
         list = [];
         return { statusCode: 200, data: data };
@@ -870,9 +879,7 @@ async function listUsersInGroups(obj) {
         usersReadWrite["data"] = {};
         usersReadWrite["data"]["Users"] = [];
       }
-      data["UsersRead"] = usersRead.data.Users;
-      data["UsersReadWrite"] = usersReadWrite.data.Users;
-
+      data["Users"] = usersRead.data.Users.concat(usersReadWrite.data.Users);
       return response(200, { message: "list users in group", data: data });
     }
   } else {
