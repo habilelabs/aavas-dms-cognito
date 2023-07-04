@@ -78,6 +78,10 @@ exports.lambdaHandler = async (event, context) => {
       return adminAction(listUsers, obj);
     } else if (path == "/removeUserFromGroup") {
       return adminAction(removeUsersFromGroup, obj);
+    } else if (path == "/enableUser") {
+      return adminAction(enableUsers, obj);
+    } else if (path == "/disableUser") {
+      return adminAction(disableUsers, obj);      
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -1002,4 +1006,60 @@ function deleteGroup(obj) {
   } else {
     return response(400, { message: "missing required fields" });
   }
+}
+
+function enableUser(obj) {
+  let requiredFields = ["username"];
+  if (isValidFields(obj, requiredFields)) {
+    var params = {
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: obj.username
+    };
+    return COGNITO_CLIENT.adminEnableUser(params).promise().then((data) => {
+      return { statusCode: 200, message: data };
+    }).catch((error) => {
+      return { statusCode: 400, message: error };
+    });
+  } else {
+    return { statusCode: 400, message: "missing fields 'username'" };
+  }
+}
+
+async function enableUsers(obj) {
+  let users = obj.users;
+  for (let i = 0; i < users.length; i++) {
+    let update = await enableUser(users[i])
+    if (update.statusCode == 400) {
+      return response(400, { message: update.message })
+    }
+  }
+  return response(200, { message: "enabled users" })
+}
+
+function disableUser(obj) {
+  let requiredFields = ["username"];
+  if (isValidFields(obj, requiredFields)) {
+    var params = {
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: obj.username
+    };
+    return COGNITO_CLIENT.adminDisableUser(params).promise().then((data) => {
+      return { statusCode: 200, message: data };
+    }).catch((error) => {
+      return { statusCode: 400, message: error };
+    });
+  } else {
+    return { statusCode: 400, message: "missing fields 'username'" };
+  }
+}
+
+async function disableUsers(obj) {
+  let users = obj.users;
+  for (let i = 0; i < users.length; i++) {
+    let update = await disableUser(users[i]);
+    if (update.statusCode == 400) {
+      return response(400, { message: update.message });
+    }
+  }
+  return response(200, { message: "disabled users" });
 }

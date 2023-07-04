@@ -667,7 +667,63 @@ Resources:
               security:
                 - cognito-auth: []                            
               x-amazon-apigateway-integration:
-                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'                                                                
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'   
+          /enableUser:
+            post:
+              description: Admin Enable User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoEnableUser'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
+          /disableUser:
+            post:
+              description: Admin Disable User
+              tags:
+              - Cognito
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoDisableUser'
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'                                                                                               
         components:
           headers:
             AccessControlAllowOrigin:
@@ -875,7 +931,21 @@ Resources:
               type: object
               properties:
                 groupname:
-                  type: string   
+                  type: string  
+            CognitoEnableUser:
+              required:
+              - users
+              type: object
+              properties:
+                users:
+                  type: array     
+            CognitoDisableUser:
+              required:
+              - users
+              type: object
+              properties:
+                users:
+                  type: array                                       
           securitySchemes:
             cognito-auth:
               type: "oauth2"
