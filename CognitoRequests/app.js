@@ -71,7 +71,7 @@ exports.lambdaHandler = async (event, context) => {
     } else if (path == "/listGroupsForUser") {
       return adminAction(listGroupsForUser, obj);
     } else if (path == "/listUsersInGroup") {
-      return adminAction(listUsersInGroup, obj);
+      return adminAction(listUsersInGroups, obj);
     } else if (path == "/listGroups") {
       return adminAction(listGroups, obj);
     } else if (path == "/listUsers") {
@@ -820,21 +820,16 @@ function listUsersInGroup(obj) {
   let requiredFields = ["groupname"];
   let nextToken;
   let limit;
-  let groupName;
   if (isValidFields(obj, requiredFields)) {
-    groupName = obj.groupname;
     if (obj && obj.nextToken) {
       nextToken = obj.nextToken;
     }
     if (obj && obj.limit) {
       limit = obj.limit;
     }
-    if (obj && obj.readOnly == 1) {
-      groupName = `${obj.groupname}_read`;
-    }
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      GroupName: groupName,
+      GroupName: obj.groupname,
       Limit: limit,
       NextToken: nextToken
     };
@@ -845,16 +840,50 @@ function listUsersInGroup(obj) {
         obj["nextToken"] = data.NextToken;
         return listUsersInGroup(obj);
       } else {
-        for (let k = 0; k < list.length; k++) {
-          list[k]["readOnly"] = (obj.readOnly ? obj.readOnly : 0);
+        for (let i = 0; i < list.length; i++) {
+          if (obj.groupname.split("_").pop() === "read") {
+            list[i]["Permission"] = "Read";
+          } else if (obj.groupname.split("_").pop() === "fullaccess") {
+            list[i]["Permission"] = "Full Access"
+          } else {
+            list[i]["Permission"] = "Read and Write"
+          }
         }
         data.Users = list;
         list = [];
-        return response(200, { message: "list users", data: data });
+        return { statusCode: 200, data: data };
       }
     }).catch((error) => {
-      return response(400, error);
+      return { statusCode: 400, message: error };
     });
+  } else {
+    return { statusCode: 400, message: "missing fields 'groupname'" };
+  }
+}
+
+async function listUsersInGroups(obj) {
+  let requiredFields = ["groupname"];
+  if (isValidFields(obj, requiredFields)) {
+    let groupname = obj.groupname;
+    if (groupname === "Admins") {
+      return response(400, { message: "can not list users for admin group" });
+    } else {
+      let data = {};
+      obj["groupname"] = `${groupname}_read`;
+      let usersRead = await listUsersInGroup(obj);
+      if (usersRead.statusCode === 400) {
+        usersRead["data"] = {};
+        usersRead["data"]["Users"] = [];
+      }
+      obj["groupname"] = groupname;
+      let usersReadWrite = await listUsersInGroup(obj);
+      if (usersReadWrite.statusCode === 400) {
+        usersReadWrite["data"] = {};
+        usersReadWrite["data"]["Users"] = [];
+      }
+      data["Users"] = usersRead.data.Users.concat(usersReadWrite.data.Users);
+      return response(200, { message: "list users in group", data: data });
+    }
   } else {
     return response(400, { message: "missing fields 'groupname'" });
   }
