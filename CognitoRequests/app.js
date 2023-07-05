@@ -822,6 +822,7 @@ function listUsers(obj) {
   let limit;
   let filter;
   let filterUser = [];
+  let query;
   if (obj && obj.paginationToken) {
     paginationToken = obj.paginationToken;
   }
@@ -831,11 +832,14 @@ function listUsers(obj) {
   if (obj && obj.filter) {
     filter = obj.filter;
   }
-
+  if(obj&& obj.status){
+    query = `status = \"${obj.status}\"`;
+  }
   var params = {
     UserPoolId: process.env.USER_POOL_ID,
     Limit: limit,
-    PaginationToken: paginationToken
+    PaginationToken: paginationToken,
+    Filter: query
   };
 
   return COGNITO_CLIENT.listUsers(params).promise().then((data) => {
