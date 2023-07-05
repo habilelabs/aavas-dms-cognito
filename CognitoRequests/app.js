@@ -81,7 +81,7 @@ exports.lambdaHandler = async (event, context) => {
     } else if (path == "/enableUser") {
       return adminAction(enableUsers, obj);
     } else if (path == "/disableUser") {
-      return adminAction(disableUsers, obj);      
+      return adminAction(disableUsers, obj);
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -583,16 +583,31 @@ function createUser(obj) {
 
 function deleteUser(obj) {
   let requiredFields = ["username"];
+  let adminList = [];
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      GroupName: "Admins"
     };
-
-    return COGNITO_CLIENT.adminDeleteUser(params).promise().then((data) => {
-      return response(200, { message: "user deleted", data: data });
+    return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
+      for (let i = 0; i < data.Users.length; i++) {
+        adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
+      }
+      if (adminList.indexOf(obj.username) > -1) {
+        return response(201, { message: "admin can not be deleted" });
+      } else {
+        var params = {
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+        return COGNITO_CLIENT.adminDeleteUser(params).promise().then((data) => {
+          return response(200, { message: "user deleted" });
+        }).catch((error) => {
+          return response(400, error);
+        });
+      }
     }).catch((error) => {
-      return response(400, error);
+      return { statusCode: 400, message: error };
     });
   } else {
     return response(400, { message: "missing fields 'username'" });
