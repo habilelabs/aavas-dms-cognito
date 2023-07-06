@@ -82,6 +82,10 @@ exports.lambdaHandler = async (event, context) => {
       return adminAction(enableUsers, obj);
     } else if (path == "/disableUser") {
       return adminAction(disableUsers, obj);
+    } else if (path == "/addGroupToUser") {
+      return adminAction(addGroupsToUser, obj);
+    } else if (path == "/removeGroupFromUser") {
+      return adminAction(removeGroupsFromUser, obj);
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -698,6 +702,18 @@ async function addUsersToGroup(obj) {
   return response(200, { message: "users added to group" });
 }
 
+async function addGroupsToUser(obj) {
+  let groups = obj.groups;
+  for (let i = 0; i < groups.length; i++) {
+    groups[i]["username"] = obj.username;
+    let add = await addUserToGroup(groups[i])
+    if (add.statusCode == 400) {
+      return response(400, { message: add.message })
+    }
+  }
+  return response(200, { message: "groups added to user" });
+}
+
 function removeUserFromGroup(obj) {
   let groupList = [];
   let requiredFields = ["username", "groupname"];
@@ -769,6 +785,20 @@ async function removeUsersFromGroup(obj) {
   return response(200, { message: "users removed from group" });
 }
 
+async function removeGroupsFromUser(obj) {
+  let groups = obj.groups;
+  for (let i = 0; i < groups.length; i++) {
+    groups[i]["username"] = obj.username;
+    let remove = await removeUserFromGroup(groups[i]);
+    if (remove.statusCode == 400) {
+      return response(400, { message: remove.message })
+    } else if (remove.statusCode == 201) {
+      return response(201, { message: remove.message })
+    }
+  }
+  return response(200, { message: "groups removed from user" });
+}
+
 function listGroups(obj) {
   let nextToken;
   let limit;
@@ -832,7 +862,7 @@ function listUsers(obj) {
   if (obj && obj.filter) {
     filter = obj.filter;
   }
-  if(obj&& obj.status){
+  if (obj && obj.status) {
     query = `status = \"${obj.status}\"`;
   }
   var params = {
