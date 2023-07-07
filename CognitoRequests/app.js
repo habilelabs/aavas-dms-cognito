@@ -598,7 +598,7 @@ function deleteUser(obj) {
         adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
       }
       if (adminList.indexOf(obj.username) > -1) {
-        return response(201, { message: "admin can not be deleted" });
+        return response(400, { message: "admin can not be deleted" });
       } else {
         var params = {
           UserPoolId: process.env.USER_POOL_ID,
@@ -691,77 +691,102 @@ function addUserToGroup(obj) {
 }
 
 async function addUsersToGroup(obj) {
-  let users = obj.users;
-  for (let i = 0; i < users.length; i++) {
-    users[i]["groupname"] = obj.groupname;
-    let add = await addUserToGroup(users[i]);
-    if (add.statusCode == 400) {
-      return response(400, { message: add.message });
+  let requiredFields = ["groupname", "users"];
+  if (isValidFields(obj, requiredFields)) {
+    let users = obj.users;
+    for (let i = 0; i < users.length; i++) {
+      users[i]["groupname"] = obj.groupname;
+      let add = await addUserToGroup(users[i]);
+      if (add.statusCode == 400) {
+        return response(400, { message: add.message });
+      }
     }
+    return response(200, { message: "users added to group" });
+  } else {
+    return response(400, { message: "missing fields 'groupname', 'users'" });
   }
-  return response(200, { message: "users added to group" });
 }
 
 async function addGroupsToUser(obj) {
-  let groups = obj.groups;
-  for (let i = 0; i < groups.length; i++) {
-    groups[i]["username"] = obj.username;
-    let add = await addUserToGroup(groups[i])
-    if (add.statusCode == 400) {
-      return response(400, { message: add.message })
+  let requiredFields = ["username", "groups"];
+  if (isValidFields(obj, requiredFields)) {
+    let groups = obj.groups;
+    for (let i = 0; i < groups.length; i++) {
+      groups[i]["username"] = obj.username;
+      let add = await addUserToGroup(groups[i])
+      if (add.statusCode == 400) {
+        return response(400, { message: add.message })
+      }
     }
+    return response(200, { message: "groups added to user" });
+  } else {
+    return response(400, { message: "missing fields 'username', 'groups'" });
   }
-  return response(200, { message: "groups added to user" });
 }
 
 function removeUserFromGroup(obj) {
   let groupList = [];
+  let adminList = [];
   let requiredFields = ["username", "groupname"];
   if (isValidFields(obj, requiredFields)) {
-    var paramsUser = {
+    var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      GroupName: "Admins"
     };
-
-    return COGNITO_CLIENT.adminListGroupsForUser(paramsUser).promise().then((data) => {
-      for (let i = 0; i < data.Groups.length; i++) {
-        groupList.push(data.Groups[i].GroupName);
+    return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
+      for (let i = 0; i < data.Users.length; i++) {
+        adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
       }
-      if (groupList.indexOf(obj.groupname) > -1) {
-        var params = {
-          GroupName: obj.groupname,
-          UserPoolId: process.env.USER_POOL_ID,
-          Username: obj.username
-        };
-        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-          return { statusCode: 200, message: data };
-        }).catch((error) => {
-          return { statusCode: 400, message: error };
-        });
-      } else if (groupList.indexOf(`${obj.groupname}_read`) > -1) {
-        var params = {
-          GroupName: `${obj.groupname}_read`,
-          UserPoolId: process.env.USER_POOL_ID,
-          Username: obj.username
-        };
-        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-          return { statusCode: 200, message: data };
-        }).catch((error) => {
-          return { statusCode: 400, message: error };
-        });
-      } else if (groupList.indexOf(`${obj.groupname}_fullaccess`) > -1) {
-        var params = {
-          GroupName: `${obj.groupname}_fullaccess`,
-          UserPoolId: process.env.USER_POOL_ID,
-          Username: obj.username
-        };
-        return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
-          return { statusCode: 200, message: data };
-        }).catch((error) => {
-          return { statusCode: 400, message: error };
-        });
+      if (adminList.indexOf(obj.username) > -1) {
+        return response(400, { message: "admin can not be removed" });
       } else {
-        return { statusCode: 201, message: "user is not in group" };
+        var paramsUser = {
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+        return COGNITO_CLIENT.adminListGroupsForUser(paramsUser).promise().then((data) => {
+          for (let i = 0; i < data.Groups.length; i++) {
+            groupList.push(data.Groups[i].GroupName);
+          }
+          if (groupList.indexOf(obj.groupname) > -1) {
+            var params = {
+              GroupName: obj.groupname,
+              UserPoolId: process.env.USER_POOL_ID,
+              Username: obj.username
+            };
+            return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+              return { statusCode: 200, message: data };
+            }).catch((error) => {
+              return { statusCode: 400, message: error };
+            });
+          } else if (groupList.indexOf(`${obj.groupname}_read`) > -1) {
+            var params = {
+              GroupName: `${obj.groupname}_read`,
+              UserPoolId: process.env.USER_POOL_ID,
+              Username: obj.username
+            };
+            return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+              return { statusCode: 200, message: data };
+            }).catch((error) => {
+              return { statusCode: 400, message: error };
+            });
+          } else if (groupList.indexOf(`${obj.groupname}_fullaccess`) > -1) {
+            var params = {
+              GroupName: `${obj.groupname}_fullaccess`,
+              UserPoolId: process.env.USER_POOL_ID,
+              Username: obj.username
+            };
+            return COGNITO_CLIENT.adminRemoveUserFromGroup(params).promise().then((data) => {
+              return { statusCode: 200, message: data };
+            }).catch((error) => {
+              return { statusCode: 400, message: error };
+            });
+          } else {
+            return { statusCode: 400, message: "user is not in group" };
+          }
+        }).catch((error) => {
+          return { statusCode: 400, message: error }
+        });
       }
     }).catch((error) => {
       return { statusCode: 400, message: error };
@@ -772,31 +797,41 @@ function removeUserFromGroup(obj) {
 }
 
 async function removeUsersFromGroup(obj) {
-  let users = obj.users;
-  for (let i = 0; i < users.length; i++) {
-    users[i]["groupname"] = obj.groupname;
-    let remove = await removeUserFromGroup(users[i]);
-    if (remove.statusCode == 400) {
-      return response(400, { message: remove.message });
-    } else if (remove.statusCode == 201) {
-      return response(201, { message: remove.message });
+  let requiredFields = ["groupname", "users"];
+  if (isValidFields(obj, requiredFields)) {
+    let users = obj.users;
+    for (let i = 0; i < users.length; i++) {
+      users[i]["groupname"] = obj.groupname;
+      let remove = await removeUserFromGroup(users[i]);
+      if (remove.statusCode == 400) {
+        return response(400, { message: remove.message });
+      } else if (remove.statusCode == 201) {
+        return response(201, { message: remove.message });
+      }
     }
+    return response(200, { message: "users removed from group" });
+  } else {
+    return response(400, { message: "missing fields 'groupname', 'users'" });
   }
-  return response(200, { message: "users removed from group" });
 }
 
 async function removeGroupsFromUser(obj) {
-  let groups = obj.groups;
-  for (let i = 0; i < groups.length; i++) {
-    groups[i]["username"] = obj.username;
-    let remove = await removeUserFromGroup(groups[i]);
-    if (remove.statusCode == 400) {
-      return response(400, { message: remove.message })
-    } else if (remove.statusCode == 201) {
-      return response(201, { message: remove.message })
+  let requiredFields = ["username", "groups"];
+  if (isValidFields(obj, requiredFields)) {
+    let groups = obj.groups;
+    for (let i = 0; i < groups.length; i++) {
+      groups[i]["username"] = obj.username;
+      let remove = await removeUserFromGroup(groups[i]);
+      if (remove.statusCode == 400) {
+        return response(400, { message: remove.message })
+      } else if (remove.statusCode == 201) {
+        return response(201, { message: remove.message })
+      }
     }
+    return response(200, { message: "groups removed from user" });
+  } else {
+    return response(400, { message: "missing fields 'username', 'groups'" });
   }
-  return response(200, { message: "groups removed from user" });
 }
 
 function listGroups(obj) {
