@@ -1031,7 +1031,7 @@ function listGroupsForUser(obj) {
 
     return COGNITO_CLIENT.adminListGroupsForUser(params).promise().then((data) => {
       for (var i = 0; i < data.Groups.length; i++) {
-        if ((data.Groups[i].GroupName !== "default_read") && (data.Groups[i].GroupName !== "default")) {
+        if ((data.Groups[i].GroupName !== "default_read") && (data.Groups[i].GroupName !== "default") && (data.Groups[i].GroupName !== "Admins")) {
           list.push(data.Groups[i]);
         }
       }
@@ -1039,6 +1039,17 @@ function listGroupsForUser(obj) {
         obj["nextToken"] = data.NextToken;
         return listGroupsForUser(obj);
       } else {
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].GroupName.split("_").pop() === "read") {
+            list[i].GroupName = list[i].GroupName.split("_")[0]
+            list[i]["Permission"] = "Read";
+          } else if (list[i].GroupName.split("_").pop() === "fullaccess") {
+            list[i].GroupName = list[i].GroupName.split("_")[0]
+            list[i]["Permission"] = "Full Access"
+          } else {
+            list[i]["Permission"] = "Read and Write"
+          }
+        }
         data.Groups = list;
         list = [];
         return response(200, { message: "list of groups for user", data: data });
