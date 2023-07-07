@@ -723,7 +723,63 @@ Resources:
               security:
                 - cognito-auth: []                            
               x-amazon-apigateway-integration:
-                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'                                                                                               
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'      
+          /addGroupToUser:
+            post:
+              description: Admin Add Group To Cognito User
+              tags:
+              - Cognito  
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoAddGroupToUser'                       
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'  
+          /removeGroupFromUser:
+            post:
+              description: Admin Remove Group From Cognito User
+              tags:
+              - Cognito  
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CognitoRemoveGroupFromUser'                       
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+              security:
+                - cognito-auth: []                            
+              x-amazon-apigateway-integration:
+                $ref: '#/components/x-amazon-apigateway-integrations/lambdaApi200'                                                                                                                             
         components:
           headers:
             AccessControlAllowOrigin:
@@ -945,7 +1001,27 @@ Resources:
               type: object
               properties:
                 users:
-                  type: array                                       
+                  type: array   
+            CognitoAddGroupToUser:
+              required:
+              - username
+              - groups
+              type: object
+              properties:
+                username:
+                  type: string  
+                groups:
+                  type: array    
+            CognitoRemoveGroupFromUser:
+              required:
+              - username
+              - groups
+              type: object
+              properties:
+                username:
+                  type: string  
+                groups:
+                  type: array                                                                           
           securitySchemes:
             cognito-auth:
               type: "oauth2"
