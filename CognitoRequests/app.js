@@ -86,6 +86,8 @@ exports.lambdaHandler = async (event, context) => {
       return adminAction(addGroupsToUser, obj);
     } else if (path == "/removeGroupFromUser") {
       return adminAction(removeGroupsFromUser, obj);
+    } else if (path == "/addAdminUser") {
+      return adminAction(addAdminUser, obj);
     } else {
       return response(400, { message: "invalid request" });
     }
@@ -1244,4 +1246,22 @@ async function disableUsers(obj) {
     }
   }
   return response(200, { message: "disabled users" });
+}
+
+function addAdminUser(obj) {
+  let requiredFields = ["username"];
+  if (isValidFields(obj, requiredFields)) {
+    var params = {
+      GroupName: "Admins",
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: obj.username
+    };
+    return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((data) => {
+      return response(200, { message: "user updated to admin" });
+    }).catch((error) => {
+      return response(400, { message: error });
+    });
+  } else {
+    return response(400, { message: "missing fields 'username'" });
+  }
 }
