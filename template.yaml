@@ -1100,7 +1100,9 @@ Resources:
             - cognito-idp:ListUsers
             - cognito-idp:AdminListGroupsForUser
             - cognito-idp:CreateGroup
-            - cognito-idp:DeleteGroup           
+            - cognito-idp:DeleteGroup     
+            - cognito-idp:AdminEnableUser   
+            - cognito-idp:AdminDisableUser      
             Resource:
               Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPool}
   CognitoUserPool:
