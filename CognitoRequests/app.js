@@ -740,7 +740,7 @@ function removeUserFromGroup(obj) {
         adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
       }
       if (adminList.indexOf(obj.username) > -1) {
-        return response(400, { message: "admin can not be removed" });
+        return { statusCode: 400, message: "admin can not be removed" };
       } else {
         var paramsUser = {
           UserPoolId: process.env.USER_POOL_ID,
@@ -1244,7 +1244,7 @@ function disableUser(obj) {
         adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
       };
       if (adminList.indexOf(obj.username) > -1) {
-        return response(400, { message: "admin can not be disabled" });
+        return { statusCode: 400, message: "admin can not be disabled" };
       } else {
         var params = {
           UserPoolId: process.env.USER_POOL_ID,
