@@ -1232,14 +1232,30 @@ async function enableUsers(obj) {
 }
 
 function disableUser(obj) {
+  let adminList = [];
   let requiredFields = ["username"];
   if (isValidFields(obj, requiredFields)) {
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      GroupName: "Admins"
     };
-    return COGNITO_CLIENT.adminDisableUser(params).promise().then((data) => {
-      return { statusCode: 200, message: data };
+    return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
+      for (let i = 0; i < data.Users.length; i++) {
+        adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
+      };
+      if (adminList.indexOf(obj.username) > -1) {
+        return response(400, { message: "admin can not be disabled" });
+      } else {
+        var params = {
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+        return COGNITO_CLIENT.adminDisableUser(params).promise().then((data) => {
+          return { statusCode: 200, message: data };
+        }).catch((error) => {
+          return { statusCode: 400, message: error };
+        });
+      }
     }).catch((error) => {
       return { statusCode: 400, message: error };
     });
