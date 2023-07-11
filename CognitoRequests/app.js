@@ -1120,14 +1120,14 @@ function createGroup(obj) {
     var paramsRead = {
       UserPoolId: process.env.USER_POOL_ID,
       GroupName: `${obj.groupname}_read`,
-      Description: `read only access to ${obj.groupname}`
+      Description: obj.description
     };
 
     return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
       var paramsFullAccess = {
         UserPoolId: process.env.USER_POOL_ID,
         GroupName: `${obj.groupname}_fullaccess`,
-        Description: `full access to ${obj.groupname}`
+        Description: obj.description
       };
       return COGNITO_CLIENT.createGroup(paramsFullAccess).promise().then((data) => {
         var params = {
