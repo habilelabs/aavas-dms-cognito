@@ -570,12 +570,12 @@ function createUser(obj) {
 
     return COGNITO_CLIENT.adminCreateUser(params).promise().then((data) => {
       var params = {
-        GroupName: "default",
+        GroupName: "default_fullaccess",
         UserPoolId: process.env.USER_POOL_ID,
         Username: obj.username
       };
       return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((dataGroup) => {
-        return response(200, { message: "user created and added to default group", data: data });
+        return response(200, { message: "user created successfully", data: data });
       }).catch((error) => {
         return response(400, error);
       });
@@ -877,7 +877,7 @@ function listGroups(obj) {
       }
       data.Groups = list;
       list = [];
-      return response(200, { message: "list group", data: data });
+      return response(200, { messagee: "list group", data: data });
     }
   }).catch((error) => {
     return response(400, error);
@@ -925,7 +925,7 @@ function listUsers(obj) {
       }
       data.Users = list;
       list = [];
-      return response(200, { message: "list users", data: data });
+      return response(200, { messagee: "list users", data: data });
     }
   }).catch((error) => {
     return response(400, error);
@@ -1004,7 +1004,7 @@ async function listUsersInGroups(obj) {
         usersFullAccess["data"]["Users"] = [];
       }
       data["Users"] = usersRead.data.Users.concat(usersReadWrite.data.Users, usersFullAccess.data.Users);
-      return response(200, { message: "list users in group", data: data });
+      return response(200, { messagee: "list users in group", data: data });
     }
   } else {
     return response(400, { message: "missing fields 'groupname'" });
@@ -1052,7 +1052,7 @@ function listGroupsForUser(obj) {
         }
         data.Groups = list;
         list = [];
-        return response(200, { message: "list of groups for user", data: data });
+        return response(200, { messagee: "list of groups for user", data: data });
       }
     }).catch((error) => {
       return response(400, error);
@@ -1117,42 +1117,46 @@ function getUserData(obj) {
 function createGroup(obj) {
   let requiredFields = ["groupname"];
   if (isValidFields(obj, requiredFields)) {
-    var paramsRead = {
-      UserPoolId: process.env.USER_POOL_ID,
-      GroupName: `${obj.groupname}_read`,
-      Description: obj.description
-    };
-
-    return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
-      var paramsFullAccess = {
+    if (obj.groupname.length > 0) {
+      var paramsRead = {
         UserPoolId: process.env.USER_POOL_ID,
-        GroupName: `${obj.groupname}_fullaccess`,
+        GroupName: `${obj.groupname}_read`,
         Description: obj.description
       };
-      return COGNITO_CLIENT.createGroup(paramsFullAccess).promise().then((data) => {
-        var params = {
+
+      return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
+        var paramsFullAccess = {
           UserPoolId: process.env.USER_POOL_ID,
-          GroupName: obj.groupname,
+          GroupName: `${obj.groupname}_fullaccess`,
           Description: obj.description
         };
-        return COGNITO_CLIENT.createGroup(params).promise().then((dataGroup) => {
+        return COGNITO_CLIENT.createGroup(paramsFullAccess).promise().then((data) => {
           var params = {
             UserPoolId: process.env.USER_POOL_ID,
-            GroupName: "Admins"
+            GroupName: obj.groupname,
+            Description: obj.description
           };
-          return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
-            for (let i = 0; i < data.Users.length; i++) {
-              var params = {
-                GroupName: `${obj.groupname}_fullaccess`,
-                UserPoolId: process.env.USER_POOL_ID,
-                Username: data.Users[i].Username
-              };
+          return COGNITO_CLIENT.createGroup(params).promise().then((dataGroup) => {
+            var params = {
+              UserPoolId: process.env.USER_POOL_ID,
+              GroupName: "Admins"
+            };
+            return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
+              for (let i = 0; i < data.Users.length; i++) {
+                var params = {
+                  GroupName: `${obj.groupname}_fullaccess`,
+                  UserPoolId: process.env.USER_POOL_ID,
+                  Username: data.Users[i].Username
+                };
 
-              COGNITO_CLIENT.adminAddUserToGroup(params).promise();
-            }
-            return response(200, { message: "group created", data: dataGroup });
+                COGNITO_CLIENT.adminAddUserToGroup(params).promise();
+              }
+              return response(200, { message: "group created", data: dataGroup });
+            }).catch((error) => {
+              return { statusCode: 400, message: error };
+            });
           }).catch((error) => {
-            return { statusCode: 400, message: error };
+            return response(400, error);
           });
         }).catch((error) => {
           return response(400, error);
@@ -1160,9 +1164,9 @@ function createGroup(obj) {
       }).catch((error) => {
         return response(400, error);
       });
-    }).catch((error) => {
-      return response(400, error);
-    });
+    } else {
+      return response(400, { message: "groupname can not be empty" });
+    }
   } else {
     return response(400, { message: "missing required fields" });
   }
@@ -1228,7 +1232,7 @@ async function enableUsers(obj) {
       return response(400, { message: update.message });
     }
   }
-  return response(200, { message: "enabled users" });
+  return response(200, { message: "user(s) enabled successfully" });
 }
 
 function disableUser(obj) {
@@ -1272,21 +1276,37 @@ async function disableUsers(obj) {
       return response(400, { message: update.message });
     }
   }
-  return response(200, { message: "disabled users" });
+  return response(200, { message: "user(s) disabled successfully" });
 }
 
 function addAdminUser(obj) {
+  let adminList = [];
   let requiredFields = ["username"];
   if (isValidFields(obj, requiredFields)) {
-    var params = {
-      GroupName: "Admins",
+    var paramsAdmin = {
       UserPoolId: process.env.USER_POOL_ID,
-      Username: obj.username
+      GroupName: "Admins"
     };
-    return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((data) => {
-      return response(200, { message: "user updated to admin" });
+    return COGNITO_CLIENT.listUsersInGroup(paramsAdmin).promise().then((data) => {
+      for (let i = 0; i < data.Users.length; i++) {
+        adminList.push(data.Users[i].Attributes[data.Users[i].Attributes.length - 1].Value);
+      }
+      if (adminList.indexOf(obj.username) > -1) {
+        return response(400, { message: "user is already admin" });
+      } else {
+        var params = {
+          GroupName: "Admins",
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: obj.username
+        };
+        return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((data) => {
+          return response(200, { message: "user updated to admin" });
+        }).catch((error) => {
+          return response(400, { message: error });
+        });
+      }
     }).catch((error) => {
-      return response(400, { message: error });
+      return { statusCode: 400, message: error };
     });
   } else {
     return response(400, { message: "missing fields 'username'" });
