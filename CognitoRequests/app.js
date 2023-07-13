@@ -1031,7 +1031,7 @@ function listGroupsForUser(obj) {
 
     return COGNITO_CLIENT.adminListGroupsForUser(params).promise().then((data) => {
       for (var i = 0; i < data.Groups.length; i++) {
-        if ((data.Groups[i].GroupName !== "default_read") && (data.Groups[i].GroupName !== "default") && (data.Groups[i].GroupName !== "Admins")) {
+        if ((data.Groups[i].GroupName !== "default_read") && (data.Groups[i].GroupName !== "default") && (data.Groups[i].GroupName !== "default_fullaccess") && (data.Groups[i].GroupName !== "Admins")) {
           list.push(data.Groups[i]);
         }
       }
