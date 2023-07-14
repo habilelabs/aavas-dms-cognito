@@ -804,6 +804,9 @@ function removeUserFromGroup(obj) {
 async function removeUsersFromGroup(obj) {
   let requiredFields = ["groupname", "users"];
   if (isValidFields(obj, requiredFields)) {
+    if(obj.groupname == "default"){
+      return response(400, { message: "user(s) can not be removed from default group" });
+    }else{
     let users = obj.users;
     for (let i = 0; i < users.length; i++) {
       users[i]["groupname"] = obj.groupname;
@@ -815,6 +818,7 @@ async function removeUsersFromGroup(obj) {
       }
     }
     return response(200, { message: "users removed from group" });
+    }
   } else {
     return response(400, { message: "missing fields 'groupname', 'users'" });
   }
@@ -1161,7 +1165,7 @@ async function createGroup(obj) {
 
                   COGNITO_CLIENT.adminAddUserToGroup(params).promise();
                 }
-                return response(200, { message: "group created", data: dataGroup });
+                return response(200, { message: "site created", data: dataGroup });
               }).catch((error) => {
                 return { statusCode: 400, message: error };
               });
@@ -1217,6 +1221,9 @@ async function createGroup(obj) {
 function deleteGroup(obj) {
   let requiredFields = ["groupname"];
   if (isValidFields(obj, requiredFields)) {
+    if (obj.groupname === "default" || obj.groupname === "Admins") {
+      return response(400, { message: "default/Admins group can not be deleted" });
+    }else{
     var params = {
       UserPoolId: process.env.USER_POOL_ID,
       GroupName: obj.groupname
@@ -1234,7 +1241,7 @@ function deleteGroup(obj) {
 
         };
         return COGNITO_CLIENT.deleteGroup(paramsRead).promise().then((data) => {
-          return response(200, { message: "group deleted" });
+          return response(200, { message: "site deleted" });
         }).catch((error) => {
           return response(400, error);
         });
@@ -1244,6 +1251,7 @@ function deleteGroup(obj) {
     }).catch((error) => {
       return response(400, error);
     });
+    }
   } else {
     return response(400, { message: "missing required fields" });
   }
