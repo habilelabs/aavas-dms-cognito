@@ -29,6 +29,9 @@ exports.lambdaHandler = async (event, context) => {
       groups = event.requestContext.authorizer.claims['cognito:groups'];
       isAdmin = groups.indexOf(allowedGroup);
     }
+    if (!obj) {
+      obj = {};
+    }
     if (isAdmin > -1) {
       return func(obj);
     } else {
@@ -715,9 +718,9 @@ async function addGroupsToUser(obj) {
     let groups = obj.groups;
     for (let i = 0; i < groups.length; i++) {
       groups[i]["username"] = obj.username;
-      let add = await addUserToGroup(groups[i])
+      let add = await addUserToGroup(groups[i]);
       if (add.statusCode == 400) {
-        return response(400, { message: add.message })
+        return response(400, { message: add.message });
       }
     }
     return response(200, { message: "groups added to user" });
@@ -1041,13 +1044,13 @@ function listGroupsForUser(obj) {
       } else {
         for (let i = 0; i < list.length; i++) {
           if (list[i].GroupName.split("_").pop() === "read") {
-            list[i].GroupName = list[i].GroupName.split("_")[0]
+            list[i].GroupName = list[i].GroupName.replace("_read", "");
             list[i]["Permission"] = "Read";
           } else if (list[i].GroupName.split("_").pop() === "fullaccess") {
-            list[i].GroupName = list[i].GroupName.split("_")[0]
-            list[i]["Permission"] = "Full Access"
+            list[i].GroupName = list[i].GroupName.replace("_fullaccess", "");
+            list[i]["Permission"] = "Full Access";
           } else {
-            list[i]["Permission"] = "Read and Write"
+            list[i]["Permission"] = "Read and Write";
           }
         }
         data.Groups = list;
@@ -1114,57 +1117,96 @@ function getUserData(obj) {
   }
 }
 
-function createGroup(obj) {
+async function createGroup(obj) {
   let requiredFields = ["groupname"];
   if (isValidFields(obj, requiredFields)) {
-    if (obj.groupname.length > 0) {
-      var paramsRead = {
-        UserPoolId: process.env.USER_POOL_ID,
-        GroupName: `${obj.groupname}_read`,
-        Description: obj.description
-      };
+    let groupList = await listGroup({});
+    groupList.data.push("Admins", "default");
+    groupList.data = groupList.data.map((item) => { return item.toLowerCase() });
 
-      return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
-        var paramsFullAccess = {
+    if (obj.groupname.length > 0) {
+      if (groupList.data.includes(obj.groupname.toLowerCase())) {
+        return response(400, { message: "Site with the name already exists" });
+      } else {
+        var paramsRead = {
           UserPoolId: process.env.USER_POOL_ID,
-          GroupName: `${obj.groupname}_fullaccess`,
+          GroupName: `${obj.groupname}_read`,
           Description: obj.description
         };
-        return COGNITO_CLIENT.createGroup(paramsFullAccess).promise().then((data) => {
-          var params = {
+
+        return COGNITO_CLIENT.createGroup(paramsRead).promise().then((data) => {
+          var paramsFullAccess = {
             UserPoolId: process.env.USER_POOL_ID,
-            GroupName: obj.groupname,
+            GroupName: `${obj.groupname}_fullaccess`,
             Description: obj.description
           };
-          return COGNITO_CLIENT.createGroup(params).promise().then((dataGroup) => {
+          return COGNITO_CLIENT.createGroup(paramsFullAccess).promise().then((data) => {
             var params = {
               UserPoolId: process.env.USER_POOL_ID,
-              GroupName: "Admins"
+              GroupName: obj.groupname,
+              Description: obj.description
             };
-            return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
-              for (let i = 0; i < data.Users.length; i++) {
-                var params = {
-                  GroupName: `${obj.groupname}_fullaccess`,
-                  UserPoolId: process.env.USER_POOL_ID,
-                  Username: data.Users[i].Username
-                };
+            return COGNITO_CLIENT.createGroup(params).promise().then((dataGroup) => {
+              var params = {
+                UserPoolId: process.env.USER_POOL_ID,
+                GroupName: "Admins"
+              };
+              return COGNITO_CLIENT.listUsersInGroup(params).promise().then((data) => {
+                for (let i = 0; i < data.Users.length; i++) {
+                  var params = {
+                    GroupName: `${obj.groupname}_fullaccess`,
+                    UserPoolId: process.env.USER_POOL_ID,
+                    Username: data.Users[i].Username
+                  };
 
-                COGNITO_CLIENT.adminAddUserToGroup(params).promise();
-              }
-              return response(200, { message: "group created", data: dataGroup });
+                  COGNITO_CLIENT.adminAddUserToGroup(params).promise();
+                }
+                return response(200, { message: "group created", data: dataGroup });
+              }).catch((error) => {
+                return { statusCode: 400, message: error };
+              });
             }).catch((error) => {
-              return { statusCode: 400, message: error };
+              var paramsRead = {
+                UserPoolId: process.env.USER_POOL_ID,
+                GroupName: `${obj.groupname}_read`
+
+              };
+              return COGNITO_CLIENT.deleteGroup(paramsRead).promise().then((data) => {
+                var paramsFullAccess = {
+                  UserPoolId: process.env.USER_POOL_ID,
+                  GroupName: `${obj.groupname}_fullaccess`
+
+                };
+                return COGNITO_CLIENT.deleteGroup(paramsFullAccess).promise().then((data) => {
+                  return response(400, error);
+                }).catch((error) => {
+                  return response(400, error);
+                });
+              }).catch((error) => {
+                return response(400, error);
+              });
             });
           }).catch((error) => {
-            return response(400, error);
+
+            var paramsRead = {
+              UserPoolId: process.env.USER_POOL_ID,
+              GroupName: `${obj.groupname}_read`
+
+            };
+            return COGNITO_CLIENT.deleteGroup(paramsRead).promise().then((data) => {
+              return response(400, error);
+            }).catch((error) => {
+              return response(400, error);
+            });
           });
         }).catch((error) => {
+          error.message = "A site with the name already exists.";
           return response(400, error);
         });
-      }).catch((error) => {
-        return response(400, error);
-      });
-    } else {
+      }
+    }
+
+    else {
       return response(400, { message: "groupname can not be empty" });
     }
   } else {
@@ -1279,6 +1321,39 @@ async function disableUsers(obj) {
   return response(200, { message: "user(s) disabled successfully" });
 }
 
+function listGroup(obj) {
+  let nextToken;
+  let limit;
+  if (obj && obj.nextToken) {
+    nextToken = obj.nextToken;
+  }
+  if (obj && obj.limit) {
+    limit = obj.limit;
+  }
+  var params = {
+    UserPoolId: process.env.USER_POOL_ID,
+    Limit: limit,
+    NextToken: nextToken
+  };
+  return COGNITO_CLIENT.listGroups(params).promise().then((data) => {
+    for (var i = 0; i < data.Groups.length; i++) {
+      if (!data.Groups[i].GroupName.includes("_read") && !data.Groups[i].GroupName.includes("_fullaccess") && (data.Groups[i].GroupName !== "Admins") && (data.Groups[i].GroupName !== "default")) {
+        list.push(data.Groups[i].GroupName);
+      }
+    }
+    if (data.NextToken) {
+      obj["nextToken"] = data.NextToken;
+      return listGroup(obj);
+    } else {
+      data = list;
+      list = [];
+      return { statusCode: 200, message: "list group", data: data };
+    }
+  }).catch((error) => {
+    return { statusCode: 400, message: error };
+  });
+}
+
 function addAdminUser(obj) {
   let adminList = [];
   let requiredFields = ["username"];
@@ -1299,7 +1374,19 @@ function addAdminUser(obj) {
           UserPoolId: process.env.USER_POOL_ID,
           Username: obj.username
         };
-        return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then((data) => {
+        return COGNITO_CLIENT.adminAddUserToGroup(params).promise().then(async (data) => {
+          let groupList = await listGroup({});
+          for (let i = 0; i < groupList.data.length; i++) {
+            let objj = {
+              "groupname": groupList.data[i],
+              "username": obj.username,
+              "permission": 11
+            };
+            let add = await addUserToGroup(objj);
+            if (add.statusCode == 400) {
+              return response(400, { message: add.message });
+            }
+          }
           return response(200, { message: "user updated to admin" });
         }).catch((error) => {
           return response(400, { message: error });
